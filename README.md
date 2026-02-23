@@ -118,6 +118,27 @@ Minerva supports an encrypted API key vault.
 ### How it works
 
 - User enters Torn API key in a custom Minerva popup
+
+## Data / Key Handling Disclosure (Service Listing / AI Policy Style)
+
+This section is written so it can be reused in service-listing "additional info" fields that ask about storage, sharing, and API key handling.
+
+| Category | Minerva Statement |
+| --- | --- |
+| Data Storage | Local only in the user's browser (Tampermonkey storage). |
+| Data Retention | Persistent until the user clears/reset storage or removes the script. Some temporary runtime state exists in memory while the page is open. |
+| Data Sharing | No user tracking data is sent to the script author. No data is shared with factions, third parties, or service owners by Minerva. |
+| Purpose of Use | Player activity tracking, target list management, UI notifications/toasts, and user-requested automation helpers inside Torn. |
+| API Key Storage & Sharing | Torn API key is stored locally only. Minerva supports encrypted local storage (passphrase-protected vault) with a temporary local unlock cache. The key is not sent to the script author or GitHub/Greasy Fork. |
+| API Key Access Level | Recommended minimum custom key scope: `User -> Profile` (only the selections needed for Minerva's profile activity checks). |
+| External Requests (Non-Torn) | Optional version checks request GitHub Releases metadata only. No Torn API key is included in those requests. |
+
+Summary:
+
+- Stored locally only
+- Not shared with the author
+- Used only for Torn activity tracking and related on-page notifications
+- Use the minimum Torn API key permissions required
 - User creates a Minerva passphrase
 - Minerva encrypts the key using Web Crypto (`PBKDF2` + `AES-GCM`)
 - Encrypted vault is stored in Tampermonkey storage

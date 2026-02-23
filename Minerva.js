@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Minerva
 // @namespace    http://tampermonkey.net/
-// @version      v0.4.22
+// @version      v0.4.25
 // @description  Track Torn player activity with a floating multi-target tracker, alerts, and diagnostics.
 // @author       Beatrix [1956521]
 // @license      Proprietary - All Rights Reserved
@@ -23,7 +23,7 @@
     // No permission is granted to copy, modify, redistribute, or republish this script.
 
     // --- Configuration & State ---
-    const MINERVA_VERSION = "v0.4.22";
+    const MINERVA_VERSION = "v0.4.25";
     const API_KEY_STORAGE_KEY = "torn-api-key";
     const API_KEY_VAULT_STORAGE_KEY = "torn-api-key-vault";
     const API_KEY_CACHE_STORAGE_KEY = "torn-api-key-cache";
@@ -77,6 +77,9 @@
     let manualPingCooldownUntil = 0;
     let versionCheckInFlight = false;
     let trackedTargetsValueChangeListenerId = null;
+    let lastKnownLocationSearch = window.location.search || "";
+    let trackedListRenderScheduled = false;
+    let trackedListRenderInProgress = false;
     let trackedTargets = GM_getValue(TRACKED_TARGETS_STORAGE_KEY, []);
     let trackedStates = {};
 
@@ -87,9 +90,7 @@
     trackedTargets = trackedTargets.map(String).filter(Boolean);
     trackedTargets = trackedTargets.slice(0, maxTrackedTargets);
     GM_setValue(TRACKED_TARGETS_STORAGE_KEY, trackedTargets);
-    trackedTargets.forEach(id => {
-        trackedStates[id] = trackedStates[id] || { status: "UNKNOWN", thresholdStatus: "UNKNOWN", last: "--", name: id, isHospitalized: null };
-    });
+    trackedTargets.forEach(id => ensureTrackedState(id, id));
 
     // --- Logging System ---
     function getLogContextSummary() {
@@ -97,8 +98,24 @@
         return `ctx{tracking=${isTracking ? 1 : 0},target=${targetId || "-"},tracked=${trackedTargets.length},status=${currentStatus},path=${path}}`;
     }
 
+    function ensureTrackedState(id, nameHint = null) {
+        const key = String(id);
+        trackedStates[key] = trackedStates[key] || {
+            status: "UNKNOWN",
+            thresholdStatus: "UNKNOWN",
+            last: "--",
+            name: key,
+            isHospitalized: null
+        };
+        if (nameHint) trackedStates[key].name = String(nameHint);
+        return trackedStates[key];
+    }
+
     function syncTargetIdFromUrl() {
-        const nextTargetId = new URLSearchParams(window.location.search).get("XID");
+        const currentSearch = window.location.search || "";
+        if (currentSearch === lastKnownLocationSearch) return false;
+        lastKnownLocationSearch = currentSearch;
+        const nextTargetId = new URLSearchParams(currentSearch).get("XID");
         if (String(nextTargetId || "") === String(targetId || "")) return false;
         const previous = targetId;
         targetId = nextTargetId;
@@ -158,8 +175,10 @@
                 background-image: none !important;
                 animation: none !important;
                 text-shadow: none !important;
+                box-shadow: none !important;
                 filter: none !important;
                 transform: none !important;
+                background-position: initial !important;
                 transition: color 0.12s ease, border-color 0.12s ease, background-color 0.12s ease !important;
             }
             #minerva-master-container button:hover,
@@ -172,6 +191,7 @@
                 filter: none !important;
                 transform: none !important;
                 background-image: none !important;
+                box-shadow: none !important;
             }
         `;
         document.head.appendChild(style);
@@ -191,15 +211,7 @@
         if (current === next) return false;
 
         trackedTargets = stored;
-        trackedTargets.forEach(id => {
-            trackedStates[id] = trackedStates[id] || {
-                status: "UNKNOWN",
-                thresholdStatus: "UNKNOWN",
-                last: "--",
-                name: id,
-                isHospitalized: null
-            };
-        });
+        trackedTargets.forEach(id => ensureTrackedState(id, id));
         renderTrackedList();
         updateTrackCurrentButton();
         addLog(`Tracked targets synced from ${source}. count=${trackedTargets.length}`, "DIAGNOSTIC");
@@ -212,15 +224,7 @@
         trackedTargetsValueChangeListenerId = GM_addValueChangeListener(TRACKED_TARGETS_STORAGE_KEY, (name, oldValue, newValue, remote) => {
             if (!remote) return;
             trackedTargets = normalizeTrackedTargetsList(newValue);
-            trackedTargets.forEach(id => {
-                trackedStates[id] = trackedStates[id] || {
-                    status: "UNKNOWN",
-                    thresholdStatus: "UNKNOWN",
-                    last: "--",
-                    name: id,
-                    isHospitalized: null
-                };
-            });
+            trackedTargets.forEach(id => ensureTrackedState(id, id));
             renderTrackedList();
             updateTrackCurrentButton();
             addLog(`Tracked targets synced from another tab. count=${trackedTargets.length}`, "DIAGNOSTIC");
@@ -1887,7 +1891,24 @@
         threshold.textContent = `${thresholdSeconds}s`;
     }
 
-    function renderTrackedList() {
+    function renderTrackedList(forceNow = false) {
+        if (!forceNow) {
+            if (trackedListRenderInProgress || trackedListRenderScheduled) return;
+            trackedListRenderScheduled = true;
+            const flush = () => {
+                trackedListRenderScheduled = false;
+                renderTrackedList(true);
+            };
+            if (typeof window.requestAnimationFrame === "function") {
+                window.requestAnimationFrame(flush);
+            } else {
+                setTimeout(flush, 16);
+            }
+            return;
+        }
+
+        trackedListRenderInProgress = true;
+        try {
         const list = document.getElementById("minerva-corner-list");
         if (!list) return;
         list.innerHTML = "";
@@ -1982,6 +2003,9 @@
         autoSizeCornerWidget();
         clampCornerWidgetIntoViewport();
         updateManualPingCooldownVisuals();
+        } finally {
+            trackedListRenderInProgress = false;
+        }
     }
 
     // --- Visual Updater ---
@@ -1999,23 +2023,13 @@
     }
 
     function syncTrackingStateFromUi() {
-        const toggle = document.getElementById("minerva-toggle");
-        if (!(toggle instanceof HTMLInputElement)) return;
-
-        if (toggle.checked !== isTracking) {
-            const previous = isTracking;
-            isTracking = !!toggle.checked;
-            GM_setValue("minerva-tracking-active", isTracking);
-            addLog(`Recovered tracking state mismatch (UI=${toggle.checked}, runtime=${previous}).`, "DIAGNOSTIC");
-        }
-
         const statusText = document.getElementById("minerva-status-text");
         if (isTracking && statusText && String(statusText.innerText || "").trim() === "PAUSED") {
             updateVisuals(CYAN_COLOR, currentStatus && currentStatus !== "UNKNOWN" ? currentStatus : "AWAITING PING");
         }
     }
 
-    // --- Bulletproof Injection Engine ---
+    // --- Profile UI Injection ---
     function isProfilePageContext() {
         const path = String(window.location.pathname || "").toLowerCase();
         if (path.includes("/profiles.php")) return true;
@@ -2455,9 +2469,9 @@
             onload: function(response) {
                 const durationMs = Date.now() - startedAt;
                 if (response.status !== 200) {
-                    trackedStates[id] = trackedStates[id] || { status: "UNKNOWN", thresholdStatus: "UNKNOWN", last: "--", isHospitalized: null };
-                    trackedStates[id].status = `HTTP ${response.status}`;
-                    trackedStates[id].last = "--";
+                    const state = ensureTrackedState(id);
+                    state.status = `HTTP ${response.status}`;
+                    state.last = "--";
                     if (isPrimary) {
                         updateVisuals(PINK_COLOR, `HTTP ${response.status}`);
                         addLog(`Request #${reqId} failed in ${durationMs}ms. HTTP ${response.status}: ${response.statusText}`, "ERROR");
@@ -2474,9 +2488,9 @@
                     }
                     
                     if (data.error) {
-                        trackedStates[id] = trackedStates[id] || { status: "UNKNOWN", thresholdStatus: "UNKNOWN", last: "--", isHospitalized: null };
-                        trackedStates[id].status = "API ERROR";
-                        trackedStates[id].last = "--";
+                        const state = ensureTrackedState(id);
+                        state.status = "API ERROR";
+                        state.last = "--";
                         if (isPrimary) {
                             updateVisuals(PINK_COLOR, `API ERROR: ${data.error.error}`);
                             addLog(`Request #${reqId} Torn API Error Code ${data.error.code}: ${data.error.error}`, "ERROR");
@@ -2494,10 +2508,9 @@
 
                     if (!lastActionData || !lastActionData.timestamp) {
                         const rootKeys = Object.keys(data);
-                        trackedStates[id] = trackedStates[id] || { status: "UNKNOWN", thresholdStatus: "UNKNOWN", last: "--", name: String(id), isHospitalized: null };
-                        trackedStates[id].name = profileName;
-                        trackedStates[id].status = "NO ACTIVITY";
-                        trackedStates[id].last = "--";
+                        const state = ensureTrackedState(id, profileName);
+                        state.status = "NO ACTIVITY";
+                        state.last = "--";
                         if (isPrimary) {
                             updateVisuals(PINK_COLOR, "ACTIVITY UNAVAILABLE");
                             addLog(`Request #${reqId} target profile data missing \`last_action\` (API returned profile without activity field).`, "ERROR");
@@ -2511,10 +2524,9 @@
 
                     let lastActionTimestamp = Number(lastActionData.timestamp);
                     if (!Number.isFinite(lastActionTimestamp)) {
-                        trackedStates[id] = trackedStates[id] || { status: "UNKNOWN", thresholdStatus: "UNKNOWN", last: "--", name: String(id), isHospitalized: null };
-                        trackedStates[id].name = profileName;
-                        trackedStates[id].status = "BAD TS";
-                        trackedStates[id].last = "--";
+                        const state = ensureTrackedState(id, profileName);
+                        state.status = "BAD TS";
+                        state.last = "--";
                         if (isPrimary) {
                             updateVisuals(PINK_COLOR, "BAD TIMESTAMP");
                             addLog(`Request #${reqId} \`last_action.timestamp\` is not a valid number (${String(lastActionData.timestamp)}).`, "ERROR");
@@ -2540,22 +2552,21 @@
                     const relativeText = apiLastActionStatus === "online"
                         ? "Online now"
                         : (lastActionData.relative || `${secondsSinceActive}s ago`);
-                    trackedStates[id] = trackedStates[id] || { status: "UNKNOWN", thresholdStatus: "UNKNOWN", last: "--", name: String(id), isHospitalized: null };
-                    trackedStates[id].name = profileName;
-                    const previousThresholdStatus = trackedStates[id].thresholdStatus || "UNKNOWN";
-                    const previousHospitalized = trackedStates[id].isHospitalized;
-                    const previousTraveling = trackedStates[id].isTraveling;
-                    const previousTravelDestination = trackedStates[id].travelDestination || "";
+                    const state = ensureTrackedState(id, profileName);
+                    const previousThresholdStatus = state.thresholdStatus || "UNKNOWN";
+                    const previousHospitalized = state.isHospitalized;
+                    const previousTraveling = state.isTraveling;
+                    const previousTravelDestination = state.travelDestination || "";
                     const apiProfileStatusState = String((data.profile && data.profile.status && data.profile.status.state) || (data.status && data.status.state) || "");
                     const apiProfileStatusDescription = String((data.profile && data.profile.status && data.profile.status.description) || (data.status && data.status.description) || "");
                     const isHospitalized = /hospital/i.test(apiProfileStatusState) || /hospital/i.test(apiProfileStatusDescription);
                     const travelInfo = parseTravelStatusFromProfile(apiProfileStatusState, apiProfileStatusDescription);
-                    trackedStates[id].status = actualPresenceStatus; // row display uses actual Torn presence
-                    trackedStates[id].thresholdStatus = newStatus; // notifications use threshold crossing
-                    trackedStates[id].last = relativeText;
-                    trackedStates[id].isHospitalized = isHospitalized;
-                    trackedStates[id].isTraveling = travelInfo.traveling;
-                    trackedStates[id].travelDestination = travelInfo.destination || "";
+                    state.status = actualPresenceStatus; // row display uses actual Torn presence
+                    state.thresholdStatus = newStatus; // notifications use threshold crossing
+                    state.last = relativeText;
+                    state.isHospitalized = isHospitalized;
+                    state.isTraveling = travelInfo.traveling;
+                    state.travelDestination = travelInfo.destination || "";
 
                     if (isPrimary) {
                         lastActionRelativeText = relativeText;
@@ -2609,9 +2620,9 @@
                     finish();
 
                 } catch (e) {
-                    trackedStates[id] = trackedStates[id] || { status: "UNKNOWN", thresholdStatus: "UNKNOWN", last: "--", name: String(id), isHospitalized: null };
-                    trackedStates[id].status = "PARSE ERR";
-                    trackedStates[id].last = "--";
+                    const state = ensureTrackedState(id);
+                    state.status = "PARSE ERR";
+                    state.last = "--";
                     if (isPrimary) {
                         updateVisuals(PINK_COLOR, "JSON PARSE ERROR");
                         addLog(`Request #${reqId} JSON Parse Failed: ${e.message}`, "ERROR");
@@ -2625,9 +2636,9 @@
             },
             ontimeout: function() {
                 const durationMs = Date.now() - startedAt;
-                trackedStates[id] = trackedStates[id] || { status: "UNKNOWN", thresholdStatus: "UNKNOWN", last: "--", name: String(id), isHospitalized: null };
-                trackedStates[id].status = "TIMEOUT";
-                trackedStates[id].last = "--";
+                const state = ensureTrackedState(id);
+                state.status = "TIMEOUT";
+                state.last = "--";
                 if (isPrimary) {
                     updateVisuals(PINK_COLOR, "API TIMEOUT");
                     addLog(`Request #${reqId} timed out after ${durationMs}ms (limit 10000ms).`, "ERROR");
@@ -2637,9 +2648,9 @@
             },
             onerror: function(err) {
                 const durationMs = Date.now() - startedAt;
-                trackedStates[id] = trackedStates[id] || { status: "UNKNOWN", thresholdStatus: "UNKNOWN", last: "--", name: String(id), isHospitalized: null };
-                trackedStates[id].status = "NET ERR";
-                trackedStates[id].last = "--";
+                const state = ensureTrackedState(id);
+                state.status = "NET ERR";
+                state.last = "--";
                 if (isPrimary) {
                     updateVisuals(PINK_COLOR, "NETWORK ERROR");
                     let detail = (err && err.error) ? err.error : (err && err.statusText ? err.statusText : "Check console for object dump");

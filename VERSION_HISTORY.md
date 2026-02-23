@@ -2,6 +2,23 @@
 
 This file is the source of truth for Minerva release notes on GitHub.
 
+## v0.4.25
+
+- Refactor/cleanup pass: replaced repeated tracked-state initialization boilerplate with a shared helper (`ensureTrackedState`) to simplify the polling/error paths.
+- Minor naming/comment cleanup for readability (no intended feature changes).
+
+## v0.4.24
+
+- Removed stale `#minerva-toggle` sync logic from `syncTrackingStateFromUi()` (the toggle no longer exists in the current UI).
+- Kept the useful status-text desync recovery behavior (`PAUSED` -> active status refresh) without dead DOM checks.
+
+## v0.4.23
+
+- Performance pass: debounced tracked-list rendering to reduce repeated DOM rebuild/layout work during rapid updates.
+- Reduced per-tick URL parsing work by syncing the current profile target ID only when the location search string changes.
+- Strengthened Minerva control style overrides to reduce hover flicker from Torn/global page styles.
+- Added a copy/paste-ready data/key handling disclosure section to `README.md` (used by synced additional info).
+
 ## v0.4.22
 
 - Fixed stale `Track/Untrack Current` state on Torn page changes by syncing the current profile target ID from the URL at runtime.
