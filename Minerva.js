@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Minerva
 // @namespace    http://tampermonkey.net/
-// @version      v0.4.8
+// @version      v0.4.9
 // @description  Track Torn player activity with a floating multi-target tracker, alerts, and diagnostics.
 // @author       Beatrix
 // @match        https://www.torn.com/*
@@ -108,6 +108,27 @@
             }
         }
         console.log(`[Minerva] ${logEntry}`);
+    }
+
+    function isExternalExtensionSource(value) {
+        const s = String(value || "");
+        return s.startsWith("chrome-extension://") || s.startsWith("moz-extension://") || s.startsWith("safari-extension://");
+    }
+
+    function shouldIgnoreGlobalErrorEvent(e) {
+        if (!e) return false;
+        if (isExternalExtensionSource(e.filename)) return true;
+        if (e.error && e.error.stack && isExternalExtensionSource(String(e.error.stack))) return true;
+        return false;
+    }
+
+    function shouldIgnoreUnhandledRejectionEvent(e) {
+        if (!e) return false;
+        const reason = e.reason;
+        if (!reason) return false;
+        const stack = String(reason.stack || "");
+        const msg = String(reason.message || reason || "");
+        return isExternalExtensionSource(stack) || isExternalExtensionSource(msg);
     }
 
     function getSavedWidgetPosition() {
@@ -2182,7 +2203,7 @@
     }
 
     function bootMinerva() {
-        addLog(`Booting Minerva v0.4.8. UA=${navigator.userAgent}`, "DIAGNOSTIC");
+        addLog(`Booting Minerva v0.4.9. UA=${navigator.userAgent}`, "DIAGNOSTIC");
         addLog(`Initial state loaded. tracking=${isTracking}, targetId=${targetId || "-"}, trackedTargets=[${trackedTargets.join(", ")}], threshold=${thresholdSeconds}s, maxTracked=${maxTrackedTargets}`, "DIAGNOSTIC");
         injectSafely();
         injectCornerWidget();
@@ -2236,12 +2257,14 @@
     })();
 
     window.addEventListener("error", (e) => {
+        if (shouldIgnoreGlobalErrorEvent(e)) return;
         addLog(`Window error: ${e.message} @ ${e.filename || "unknown"}:${e.lineno || 0}:${e.colno || 0}`, "ERROR");
         if (e && e.error && e.error.stack) {
             addLog(`Window error stack: ${String(e.error.stack).split("\n").slice(0, 6).join(" | ")}`, "DIAGNOSTIC");
         }
     });
     window.addEventListener("unhandledrejection", (e) => {
+        if (shouldIgnoreUnhandledRejectionEvent(e)) return;
         const reason = e && e.reason ? (e.reason.stack || e.reason.message || String(e.reason)) : "unknown";
         addLog(`Unhandled promise rejection: ${String(reason).slice(0, 300)}`, "ERROR");
         if (e && e.reason && e.reason.stack) {
