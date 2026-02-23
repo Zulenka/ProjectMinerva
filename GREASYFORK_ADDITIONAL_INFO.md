@@ -346,6 +346,11 @@ If you publish updates, keep attribution and clearly document behavioral changes
 
 This file is the source of truth for Minerva release notes on GitHub.
 
+## v0.4.22
+
+- Fixed stale `Track/Untrack Current` state on Torn page changes by syncing the current profile target ID from the URL at runtime.
+- Keeps the main panel button and current-row highlighting aligned when Torn changes profiles without a full script reload.
+
 ## v0.4.21
 
 - Updated Minerva toasts/alerts to display tracked target names (with ID fallback) instead of raw ID-only text.
