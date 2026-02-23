@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Minerva
 // @namespace    http://tampermonkey.net/
-// @version      v0.4.19
+// @version      v0.4.20
 // @description  Track Torn player activity with a floating multi-target tracker, alerts, and diagnostics.
 // @author       Beatrix [1956521]
 // @license      Proprietary - All Rights Reserved
@@ -13,6 +13,7 @@
 // @grant        GM_getValue
 // @grant        GM_notification
 // @grant        GM_xmlhttpRequest
+// @grant        GM_addValueChangeListener
 // ==/UserScript==
 
 (function() {
@@ -22,7 +23,7 @@
     // No permission is granted to copy, modify, redistribute, or republish this script.
 
     // --- Configuration & State ---
-    const MINERVA_VERSION = "v0.4.19";
+    const MINERVA_VERSION = "v0.4.20";
     const API_KEY_STORAGE_KEY = "torn-api-key";
     const API_KEY_VAULT_STORAGE_KEY = "torn-api-key-vault";
     const API_KEY_CACHE_STORAGE_KEY = "torn-api-key-cache";
@@ -76,6 +77,7 @@
     let manualPingClickTimestamps = [];
     let manualPingCooldownUntil = 0;
     let versionCheckInFlight = false;
+    let trackedTargetsValueChangeListenerId = null;
     let trackedTargets = GM_getValue(TRACKED_TARGETS_STORAGE_KEY, []);
     let trackedStates = {};
 
@@ -132,6 +134,87 @@
             .replace(/>/g, "&gt;")
             .replace(/"/g, "&quot;")
             .replace(/'/g, "&#39;");
+    }
+
+    function ensureMinervaStyleOverrides() {
+        if (document.getElementById("minerva-style-overrides")) return;
+        const style = document.createElement("style");
+        style.id = "minerva-style-overrides";
+        style.textContent = `
+            #minerva-master-container button,
+            #minerva-settings-panel button,
+            #minerva-master-container select,
+            #minerva-settings-panel select {
+                background-image: none !important;
+                animation: none !important;
+                text-shadow: none !important;
+                filter: none !important;
+                transform: none !important;
+                transition: color 0.12s ease, border-color 0.12s ease, background-color 0.12s ease !important;
+            }
+            #minerva-master-container button:hover,
+            #minerva-settings-panel button:hover,
+            #minerva-master-container button:focus,
+            #minerva-settings-panel button:focus,
+            #minerva-master-container button:active,
+            #minerva-settings-panel button:active {
+                animation: none !important;
+                filter: none !important;
+                transform: none !important;
+                background-image: none !important;
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    function normalizeTrackedTargetsList(inputList) {
+        let list = Array.isArray(inputList) ? inputList : [];
+        list = list.map(String).filter(Boolean);
+        if (!Number.isFinite(maxTrackedTargets) || maxTrackedTargets < 1) maxTrackedTargets = 8;
+        return list.slice(0, maxTrackedTargets);
+    }
+
+    function syncTrackedTargetsFromStorage(source = "storage") {
+        const stored = normalizeTrackedTargetsList(GM_getValue(TRACKED_TARGETS_STORAGE_KEY, []));
+        const current = JSON.stringify(trackedTargets);
+        const next = JSON.stringify(stored);
+        if (current === next) return false;
+
+        trackedTargets = stored;
+        trackedTargets.forEach(id => {
+            trackedStates[id] = trackedStates[id] || {
+                status: "UNKNOWN",
+                thresholdStatus: "UNKNOWN",
+                last: "--",
+                name: id,
+                isHospitalized: null
+            };
+        });
+        renderTrackedList();
+        updateTrackCurrentButton();
+        addLog(`Tracked targets synced from ${source}. count=${trackedTargets.length}`, "DIAGNOSTIC");
+        return true;
+    }
+
+    function bindTrackedTargetsStorageSync() {
+        if (typeof GM_addValueChangeListener !== "function") return;
+        if (trackedTargetsValueChangeListenerId) return;
+        trackedTargetsValueChangeListenerId = GM_addValueChangeListener(TRACKED_TARGETS_STORAGE_KEY, (name, oldValue, newValue, remote) => {
+            if (!remote) return;
+            trackedTargets = normalizeTrackedTargetsList(newValue);
+            trackedTargets.forEach(id => {
+                trackedStates[id] = trackedStates[id] || {
+                    status: "UNKNOWN",
+                    thresholdStatus: "UNKNOWN",
+                    last: "--",
+                    name: id,
+                    isHospitalized: null
+                };
+            });
+            renderTrackedList();
+            updateTrackCurrentButton();
+            addLog(`Tracked targets synced from another tab. count=${trackedTargets.length}`, "DIAGNOSTIC");
+        });
     }
 
     function isExternalExtensionSource(value) {
@@ -1423,6 +1506,7 @@
     // --- Core UI Construction ---
     function buildUI() {
         if (document.getElementById("minerva-master-container")) return null; 
+        ensureMinervaStyleOverrides();
 
         const wrapper = document.createElement("div");
         wrapper.id = "minerva-master-container";
@@ -1699,6 +1783,7 @@
 
     function buildCornerWidget() {
         if (document.getElementById("minerva-corner-widget")) return null;
+        ensureMinervaStyleOverrides();
 
         const widget = document.createElement("div");
         widget.id = "minerva-corner-widget";
@@ -2610,6 +2695,7 @@
     function bootMinerva() {
         addLog(`Booting Minerva ${MINERVA_VERSION}. UA=${navigator.userAgent}`, "DIAGNOSTIC");
         addLog(`Initial state loaded. tracking=${isTracking}, targetId=${targetId || "-"}, trackedTargets=[${trackedTargets.join(", ")}], threshold=${thresholdSeconds}s, maxTracked=${maxTrackedTargets}`, "DIAGNOSTIC");
+        bindTrackedTargetsStorageSync();
         injectSafely();
         injectCornerWidget();
         if (engineIntervalId) {
@@ -2676,6 +2762,10 @@
         if (e && e.reason && e.reason.stack) {
             addLog(`Unhandled rejection stack: ${String(e.reason.stack).split("\n").slice(0, 6).join(" | ")}`, "DIAGNOSTIC");
         }
+    });
+
+    window.addEventListener("focus", () => {
+        syncTrackedTargetsFromStorage("focus");
     });
 
 })();
