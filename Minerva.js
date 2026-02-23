@@ -3,7 +3,7 @@
 // @namespace    http://tampermonkey.net/
 // @version      v0.4.13
 // @description  Track Torn player activity with a floating multi-target tracker, alerts, and diagnostics.
-// @author       Beatrix
+// @author       Beatrix [1956521]
 // @license      Proprietary - All Rights Reserved
 // @supportURL   https://github.com/Zulenka/ProjectMinerva
 // @match        https://www.torn.com/*
