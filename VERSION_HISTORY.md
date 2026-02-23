@@ -2,6 +2,19 @@
 
 This file is the source of truth for Minerva release notes on GitHub.
 
+## v0.4.19
+
+- Hardened tracked-row rendering by escaping dynamic text values before inserting HTML.
+- Fixed profile injection retry observer buildup risk by tracking and disconnecting stale `MutationObserver` instances.
+- Improved injection retry cleanup so failed attempts do not leave long-lived body observers running.
+
+## v0.4.18
+
+- Removed the redundant settings `Clear` (log clear) button while keeping `Clear Tracked`.
+- Added hospital transition alerts for both entering hospital and leaving hospital.
+- Added travel alerts for departure (`traveling to ...`) and arrival (`arrived at ...`) with destination when detectable.
+- Updated within-threshold offline row label casing to `Ready` (cyan).
+
 ## v0.4.17
 
 - Changed within-threshold offline row status from `INACTIVE <...` to `READY` (shown in Minerva blue/cyan).

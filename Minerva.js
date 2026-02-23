@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Minerva
 // @namespace    http://tampermonkey.net/
-// @version      v0.4.17
+// @version      v0.4.19
 // @description  Track Torn player activity with a floating multi-target tracker, alerts, and diagnostics.
 // @author       Beatrix [1956521]
 // @license      Proprietary - All Rights Reserved
@@ -22,7 +22,7 @@
     // No permission is granted to copy, modify, redistribute, or republish this script.
 
     // --- Configuration & State ---
-    const MINERVA_VERSION = "v0.4.17";
+    const MINERVA_VERSION = "v0.4.19";
     const API_KEY_STORAGE_KEY = "torn-api-key";
     const API_KEY_VAULT_STORAGE_KEY = "torn-api-key-vault";
     const API_KEY_CACHE_STORAGE_KEY = "torn-api-key-cache";
@@ -72,6 +72,7 @@
     let injectionFailureLogged = false;
     let engineIntervalId = null;
     let lastInjectionAttemptAt = 0;
+    let profileInjectionObserver = null;
     let manualPingClickTimestamps = [];
     let manualPingCooldownUntil = 0;
     let versionCheckInFlight = false;
@@ -122,6 +123,15 @@
             }
         }
         console.log(`[Minerva] ${logEntry}`);
+    }
+
+    function escapeHtml(value) {
+        return String(value ?? "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#39;");
     }
 
     function isExternalExtensionSource(value) {
@@ -558,6 +568,45 @@
 
     function getProfileUrl(id) {
         return `https://www.torn.com/profiles.php?XID=${encodeURIComponent(String(id))}`;
+    }
+
+    function parseTravelStatusFromProfile(statusStateRaw, statusDescriptionRaw) {
+        const state = String(statusStateRaw || "").trim();
+        const description = String(statusDescriptionRaw || "").trim();
+        const stateLower = state.toLowerCase();
+        const descriptionLower = description.toLowerCase();
+        const combined = `${state} ${description}`.trim();
+
+        const traveling = /travel/i.test(state) || /traveling to/i.test(description);
+        let destination = "";
+
+        const travelToMatch = combined.match(/travel(?:l)?ing\s+to\s+([a-z][a-z\s'-]+)/i);
+        if (travelToMatch && travelToMatch[1]) {
+            destination = travelToMatch[1].trim();
+        } else if (!traveling) {
+            const locationStates = [
+                "Mexico",
+                "Canada",
+                "Cayman Islands",
+                "Switzerland",
+                "Japan",
+                "China",
+                "UAE",
+                "United Arab Emirates",
+                "South Africa",
+                "Hawaii",
+                "Argentina",
+                "United Kingdom"
+            ];
+            const stateNorm = state.toLowerCase();
+            const found = locationStates.find(loc => stateNorm === loc.toLowerCase());
+            if (found) destination = found;
+        }
+
+        return {
+            traveling,
+            destination: destination || ""
+        };
     }
 
     function updateTrackCurrentButton() {
@@ -1252,9 +1301,10 @@
     }
 
     function getStatusColor(status) {
-        if (String(status).startsWith("ACTIVE")) return CYAN_COLOR;
-        if (String(status).startsWith("READY")) return CYAN_COLOR;
-        if (String(status).startsWith("INACTIVE <")) return "#ffbf66";
+        const statusText = String(status || "").toUpperCase();
+        if (statusText.startsWith("ACTIVE")) return CYAN_COLOR;
+        if (statusText.startsWith("READY")) return CYAN_COLOR;
+        if (statusText.startsWith("INACTIVE <")) return "#ffbf66";
         if (status === "PAUSED") return "#ffbf66";
         if (status === "UNKNOWN") return "#9fb6c6";
         return PINK_COLOR;
@@ -1453,7 +1503,6 @@
                     <button id="minerva-update-check" style="background: transparent; border: 1px solid rgba(66,255,140,0.2); color: #b9ffd8; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;">Check Updates</button>
                     <button id="minerva-toast-test" style="background: transparent; border: 1px solid rgba(0,242,255,0.2); color: #bfefff; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;">View Toast</button>
                     <button id="minerva-tracked-clear" style="background: transparent; border: 1px solid #555; color: #d0d0d0; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;">Clear Tracked</button>
-                    <button id="minerva-log-clear" style="background: transparent; border: 1px solid #555; color: #aaa; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;">Clear</button>
                     <button id="minerva-log-toggle" style="background: transparent; border: 1px solid #555; color: #aaa; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; transition: 0.2s;">Show Logs ▼</button>
                 </div>
             </div>
@@ -1562,12 +1611,6 @@
             addLog("Tracked list cleared (kept current target).", "INFO");
         });
         
-        wrapper.querySelector("#minerva-log-clear").addEventListener("click", () => {
-            const logContent = document.getElementById("minerva-log-content");
-            if (logContent) logContent.innerHTML = "";
-            addLog("Logs cleared.", "INFO");
-        });
-
         updateTrackCurrentButton();
         const keyResetBtn = wrapper.querySelector("#minerva-key-reset");
         const toastTestBtn = wrapper.querySelector("#minerva-toast-test");
@@ -1758,6 +1801,9 @@
             const hospitalKnown = typeof state.isHospitalized === "boolean";
             const hospitalColor = !hospitalKnown ? "#9fb6c6" : (state.isHospitalized ? PINK_COLOR : "#42ff8c");
             const hospitalTitle = !hospitalKnown ? "Hospital status unknown" : (state.isHospitalized ? "In hospital" : "Not in hospital");
+            const safeDisplayName = escapeHtml(`${isCurrent ? "▶" : ""}${displayName}`);
+            const safeStatus = escapeHtml(state.status || "UNKNOWN");
+            const safeLast = escapeHtml(state.last || "--");
             row.style.cssText = `
                 display:flex;
                 align-items:center;
@@ -1774,11 +1820,11 @@
                 <div style="display:flex; align-items:center; gap:6px; min-width:0;">
                     <span style="width:7px; height:7px; border-radius:999px; background:${color}; box-shadow:0 0 8px ${color}66;"></span>
                     <span title="${hospitalTitle}" style="display:inline-flex; align-items:center; justify-content:center; width:12px; height:12px; color:${hospitalColor}; border:1px solid ${hospitalColor}55; border-radius:4px; font-size:10px; line-height:10px; background:rgba(255,255,255,0.02);">✚</span>
-                    <a href="${getProfileUrl(id)}" target="_blank" rel="noopener noreferrer" title="Open profile" style="color:#ffffff; text-decoration:none; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; max-width:320px; display:inline-block;">${isCurrent ? "▶" : ""}${displayName}</a>
+                    <a href="${getProfileUrl(id)}" target="_blank" rel="noopener noreferrer" title="Open profile" style="color:#ffffff; text-decoration:none; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; max-width:320px; display:inline-block;">${safeDisplayName}</a>
                 </div>
                 <div style="display:flex; align-items:center; gap:8px; min-width:0;">
-                    <span style="color:${color}; font-weight:bold; white-space:nowrap;">${state.status}</span>
-                    <span style="color:#9fb6c6; max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${state.last || "--"}</span>
+                    <span style="color:${color}; font-weight:bold; white-space:nowrap;">${safeStatus}</span>
+                    <span style="color:#9fb6c6; max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${safeLast}</span>
                     <button data-minerva-ping-id="${id}" title="${pingCooldownActive ? `Ping cooldown (${pingCooldownLabel})` : "Ping Now"}" ${pingCooldownActive ? "disabled" : ""} style="background:transparent; color:${pingCooldownActive ? "#6c7f8d" : CYAN_COLOR}; border:1px solid ${pingCooldownActive ? "rgba(255,255,255,0.08)" : "rgba(0,242,255,0.18)"}; border-radius:5px; width:22px; height:16px; line-height:12px; padding:0; cursor:${pingCooldownActive ? "not-allowed" : "pointer"}; font-size:11px; font-weight:bold; opacity:${pingCooldownActive ? "0.55" : "1"};">↻</button>
                     <button data-minerva-attack-id="${id}" title="Attack target" style="background:transparent; color:#ffb0b0; border:1px solid rgba(255,100,100,0.18); border-radius:5px; width:22px; height:16px; line-height:12px; padding:0; cursor:pointer; font-size:11px; font-weight:bold;">⚔</button>
                     <button data-minerva-remove-id="${id}" title="Remove" style="background:transparent; color:#9fb6c6; border:1px solid rgba(255,255,255,0.12); border-radius:5px; width:16px; height:16px; line-height:12px; padding:0; cursor:pointer; font-size:11px;">x</button>
@@ -2035,6 +2081,14 @@
         return true;
     }
 
+    function disconnectProfileInjectionObserver() {
+        if (!profileInjectionObserver) return;
+        try {
+            profileInjectionObserver.disconnect();
+        } catch (_) {}
+        profileInjectionObserver = null;
+    }
+
     function injectSafely() {
         if (!isProfilePageContext()) return;
         if (!targetId) return;
@@ -2042,6 +2096,7 @@
         if (!uiElement) return;
         lastInjectionAttemptAt = Date.now();
         injectionFailureLogged = false;
+        disconnectProfileInjectionObserver();
 
         const possibleTargets = [
             '.profile-wrapper',
@@ -2068,6 +2123,7 @@
                 let target = document.querySelector(selector);
                 if (target && !target.contains(uiElement)) {
                     target.insertBefore(uiElement, target.firstChild);
+                    disconnectProfileInjectionObserver();
                     addLog(`Minerva UI injected cleanly at ${selector}`, "INFO");
                     return true;
                 }
@@ -2098,6 +2154,7 @@
                 const host = anchor.closest('div[class], section, article') || anchor.parentElement;
                 if (host && host.parentElement && !host.contains(uiElement)) {
                     host.parentElement.insertBefore(uiElement, host);
+                    disconnectProfileInjectionObserver();
                     addLog(`Minerva UI injected via fallback anchor ${selector}`, "INFO");
                     return true;
                 }
@@ -2107,6 +2164,7 @@
             const dynamicHost = findBestDynamicInjectionHost(uiElement);
             if (dynamicHost && dynamicHost.host) {
                 dynamicHost.host.insertBefore(uiElement, dynamicHost.host.firstChild || null);
+                disconnectProfileInjectionObserver();
                 addLog(`Minerva UI injected via dynamic layout match (score=${Math.round(dynamicHost.score)}).`, "INFO");
                 return true;
             }
@@ -2125,11 +2183,15 @@
                 const host = document.querySelector(selector);
                 if (!host || host.contains(uiElement)) continue;
                 host.insertBefore(uiElement, host.firstChild || null);
+                disconnectProfileInjectionObserver();
                 addLog(`Minerva UI injected via generic fallback ${selector}`, "INFO");
                 return true;
             }
 
-            if (injectUiAsOverlayFallback(uiElement)) return true;
+            if (injectUiAsOverlayFallback(uiElement)) {
+                disconnectProfileInjectionObserver();
+                return true;
+            }
 
             return false;
         };
@@ -2140,15 +2202,18 @@
             if (tryInject()) {
                 addLog("Minerva UI injected via Observer.", "INFO");
                 obs.disconnect();
+                if (profileInjectionObserver === obs) profileInjectionObserver = null;
                 return;
             }
         });
+        profileInjectionObserver = observer;
         observer.observe(document.body, { childList: true, subtree: true });
 
         // Last-resort fallback if Torn's profile DOM is unusual.
         setTimeout(() => {
             if (!document.getElementById("minerva-master-container") && tryInject()) {
                 observer.disconnect();
+                if (profileInjectionObserver === observer) profileInjectionObserver = null;
             }
         }, 2500);
 
@@ -2161,6 +2226,10 @@
                 if (dyn && dyn.rankedTop && dyn.rankedTop.length) {
                     addLog(`Top dynamic candidates: ${dyn.rankedTop.map(c => `${c.desc}:${Math.round(c.score)}[${(c.reasons || []).slice(0, 3).join(",")}]`).join(" || ")}`, "DIAGNOSTIC");
                 }
+            }
+            if (!document.getElementById("minerva-master-container")) {
+                observer.disconnect();
+                if (profileInjectionObserver === observer) profileInjectionObserver = null;
             }
         }, 4000);
     }
@@ -2362,7 +2431,7 @@
                     if (apiLastActionStatus === "online") {
                         actualPresenceStatus = "ACTIVE";
                     } else if (secondsSinceActive <= thresholdSeconds) {
-                        actualPresenceStatus = "READY";
+                        actualPresenceStatus = "Ready";
                     } else {
                         actualPresenceStatus = `INACTIVE ${thresholdLabel}+`;
                     }
@@ -2373,13 +2442,18 @@
                     trackedStates[id].name = profileName;
                     const previousThresholdStatus = trackedStates[id].thresholdStatus || "UNKNOWN";
                     const previousHospitalized = trackedStates[id].isHospitalized;
+                    const previousTraveling = trackedStates[id].isTraveling;
+                    const previousTravelDestination = trackedStates[id].travelDestination || "";
                     const apiProfileStatusState = String((data.profile && data.profile.status && data.profile.status.state) || (data.status && data.status.state) || "");
                     const apiProfileStatusDescription = String((data.profile && data.profile.status && data.profile.status.description) || (data.status && data.status.description) || "");
                     const isHospitalized = /hospital/i.test(apiProfileStatusState) || /hospital/i.test(apiProfileStatusDescription);
+                    const travelInfo = parseTravelStatusFromProfile(apiProfileStatusState, apiProfileStatusDescription);
                     trackedStates[id].status = actualPresenceStatus; // row display uses actual Torn presence
                     trackedStates[id].thresholdStatus = newStatus; // notifications use threshold crossing
                     trackedStates[id].last = relativeText;
                     trackedStates[id].isHospitalized = isHospitalized;
+                    trackedStates[id].isTraveling = travelInfo.traveling;
+                    trackedStates[id].travelDestination = travelInfo.destination || "";
 
                     if (isPrimary) {
                         lastActionRelativeText = relativeText;
@@ -2401,9 +2475,24 @@
                         }
                     }
 
+                    if (previousHospitalized === false && isHospitalized === true) {
+                        addLog(`Target [${id}] has been hospitalized.`, "INFO");
+                        notifyIfHidden("Minerva Hospital", `Target [${id}] is now in the hospital.`);
+                    }
                     if (previousHospitalized === true && isHospitalized === false) {
                         addLog(`Target [${id}] is no longer hospitalized.`, "INFO");
                         notifyIfHidden("Minerva Recovery", `Target [${id}] is no longer in the hospital.`);
+                    }
+
+                    if (previousTraveling === false && travelInfo.traveling === true) {
+                        const travelLabel = travelInfo.destination || "a destination";
+                        addLog(`Target [${id}] started traveling to ${travelLabel}.`, "INFO");
+                        notifyIfHidden("Minerva Travel", `Target [${id}] started traveling to ${travelLabel}.`);
+                    }
+                    if (previousTraveling === true && travelInfo.traveling === false) {
+                        const arrivalLabel = travelInfo.destination || previousTravelDestination || "destination";
+                        addLog(`Target [${id}] arrived at ${arrivalLabel}.`, "INFO");
+                        notifyIfHidden("Minerva Travel", `Target [${id}] arrived at ${arrivalLabel}.`);
                     }
 
                     if (isPrimary && currentStatus === "INACTIVE" && newStatus === "ACTIVE") {
