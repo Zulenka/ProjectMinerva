@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Minerva
 // @namespace    http://tampermonkey.net/
-// @version      v0.4.21
+// @version      v0.4.22
 // @description  Track Torn player activity with a floating multi-target tracker, alerts, and diagnostics.
 // @author       Beatrix [1956521]
 // @license      Proprietary - All Rights Reserved
@@ -23,7 +23,7 @@
     // No permission is granted to copy, modify, redistribute, or republish this script.
 
     // --- Configuration & State ---
-    const MINERVA_VERSION = "v0.4.21";
+    const MINERVA_VERSION = "v0.4.22";
     const API_KEY_STORAGE_KEY = "torn-api-key";
     const API_KEY_VAULT_STORAGE_KEY = "torn-api-key-vault";
     const API_KEY_CACHE_STORAGE_KEY = "torn-api-key-cache";
@@ -51,8 +51,7 @@
     const GITHUB_RELEASES_PAGE_URL = "https://github.com/Zulenka/ProjectMinerva/releases";
     
     let apiKey = null;
-    const urlParams = new URLSearchParams(window.location.search);
-    const targetId = urlParams.get("XID");
+    let targetId = new URLSearchParams(window.location.search).get("XID");
     
     let isTracking = true;
     let thresholdSeconds = parseInt(GM_getValue("minerva-threshold", 300)); 
@@ -96,6 +95,17 @@
     function getLogContextSummary() {
         const path = `${window.location.pathname || ""}${window.location.search || ""}`;
         return `ctx{tracking=${isTracking ? 1 : 0},target=${targetId || "-"},tracked=${trackedTargets.length},status=${currentStatus},path=${path}}`;
+    }
+
+    function syncTargetIdFromUrl() {
+        const nextTargetId = new URLSearchParams(window.location.search).get("XID");
+        if (String(nextTargetId || "") === String(targetId || "")) return false;
+        const previous = targetId;
+        targetId = nextTargetId;
+        addLog(`Current profile target changed from ${previous || "-"} to ${targetId || "-"}.`, "DIAGNOSTIC");
+        updateTrackCurrentButton();
+        renderTrackedList();
+        return true;
     }
 
     function addLog(msg, type = "INFO") {
@@ -2681,6 +2691,7 @@
 
     // --- Main Clock ---
     function runEngine() {
+        syncTargetIdFromUrl();
         syncTrackingStateFromUi();
         updateManualPingCooldownVisuals();
 
