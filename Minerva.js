@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Minerva
 // @namespace    http://tampermonkey.net/
-// @version      v0.4.20
+// @version      v0.4.21
 // @description  Track Torn player activity with a floating multi-target tracker, alerts, and diagnostics.
 // @author       Beatrix [1956521]
 // @license      Proprietary - All Rights Reserved
@@ -23,7 +23,7 @@
     // No permission is granted to copy, modify, redistribute, or republish this script.
 
     // --- Configuration & State ---
-    const MINERVA_VERSION = "v0.4.20";
+    const MINERVA_VERSION = "v0.4.21";
     const API_KEY_STORAGE_KEY = "torn-api-key";
     const API_KEY_VAULT_STORAGE_KEY = "torn-api-key-vault";
     const API_KEY_CACHE_STORAGE_KEY = "torn-api-key-cache";
@@ -651,6 +651,13 @@
 
     function getProfileUrl(id) {
         return `https://www.torn.com/profiles.php?XID=${encodeURIComponent(String(id))}`;
+    }
+
+    function getTrackedTargetLabel(id) {
+        const state = trackedStates && trackedStates[String(id)];
+        const name = String((state && state.name) || "").trim();
+        if (name) return `${name} [${id}]`;
+        return `[${id}]`;
     }
 
     function parseTravelStatusFromProfile(statusStateRaw, statusDescriptionRaw) {
@@ -2552,36 +2559,41 @@
                     renderTrackedList();
 
                     if (previousThresholdStatus !== newStatus && previousThresholdStatus !== "UNKNOWN") {
-                        addLog(`Target [${id}] threshold status changed from ${previousThresholdStatus} to ${newStatus}`, "INFO");
+                        const targetLabel = getTrackedTargetLabel(id);
+                        addLog(`Target ${targetLabel} threshold status changed from ${previousThresholdStatus} to ${newStatus}`, "INFO");
                         if (newStatus === "INACTIVE") {
-                            notifyIfHidden("Minerva Tracking", `Target [${id}] crossed your inactivity threshold (${thresholdSeconds}s).`);
+                            notifyIfHidden("Minerva Tracking", `Target ${targetLabel} crossed your inactivity threshold (${thresholdSeconds}s).`);
                         } else if (newStatus === "ACTIVE") {
-                            notifyIfHidden("Minerva Tracking", `Target [${id}] is active again.`);
+                            notifyIfHidden("Minerva Tracking", `Target ${targetLabel} is active again.`);
                         }
                     }
 
                     if (previousHospitalized === false && isHospitalized === true) {
-                        addLog(`Target [${id}] has been hospitalized.`, "INFO");
-                        notifyIfHidden("Minerva Hospital", `Target [${id}] is now in the hospital.`);
+                        const targetLabel = getTrackedTargetLabel(id);
+                        addLog(`Target ${targetLabel} has been hospitalized.`, "INFO");
+                        notifyIfHidden("Minerva Hospital", `Target ${targetLabel} is now in the hospital.`);
                     }
                     if (previousHospitalized === true && isHospitalized === false) {
-                        addLog(`Target [${id}] is no longer hospitalized.`, "INFO");
-                        notifyIfHidden("Minerva Recovery", `Target [${id}] is no longer in the hospital.`);
+                        const targetLabel = getTrackedTargetLabel(id);
+                        addLog(`Target ${targetLabel} is no longer hospitalized.`, "INFO");
+                        notifyIfHidden("Minerva Recovery", `Target ${targetLabel} is no longer in the hospital.`);
                     }
 
                     if (previousTraveling === false && travelInfo.traveling === true) {
+                        const targetLabel = getTrackedTargetLabel(id);
                         const travelLabel = travelInfo.destination || "a destination";
-                        addLog(`Target [${id}] started traveling to ${travelLabel}.`, "INFO");
-                        notifyIfHidden("Minerva Travel", `Target [${id}] started traveling to ${travelLabel}.`);
+                        addLog(`Target ${targetLabel} started traveling to ${travelLabel}.`, "INFO");
+                        notifyIfHidden("Minerva Travel", `Target ${targetLabel} started traveling to ${travelLabel}.`);
                     }
                     if (previousTraveling === true && travelInfo.traveling === false) {
+                        const targetLabel = getTrackedTargetLabel(id);
                         const arrivalLabel = travelInfo.destination || previousTravelDestination || "destination";
-                        addLog(`Target [${id}] arrived at ${arrivalLabel}.`, "INFO");
-                        notifyIfHidden("Minerva Travel", `Target [${id}] arrived at ${arrivalLabel}.`);
+                        addLog(`Target ${targetLabel} arrived at ${arrivalLabel}.`, "INFO");
+                        notifyIfHidden("Minerva Travel", `Target ${targetLabel} arrived at ${arrivalLabel}.`);
                     }
 
                     if (isPrimary && currentStatus === "INACTIVE" && newStatus === "ACTIVE") {
-                        notifyIfHidden("Minerva Tracking Alert", `Target [${id}] has just become ACTIVE!`);
+                        notifyIfHidden("Minerva Tracking Alert", `Target ${getTrackedTargetLabel(id)} has just become ACTIVE!`);
                     }
                     if (isPrimary) currentStatus = newStatus;
                     finish();
