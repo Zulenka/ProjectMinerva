@@ -346,6 +346,13 @@ If you publish updates, keep attribution and clearly document behavioral changes
 
 This file is the source of truth for Minerva release notes on GitHub.
 
+## v0.4.20
+
+- Added cross-tab tracked-target syncing so tracked users persist/update across Torn pages and browser tabs without waiting for reloads.
+- Added Minerva control style overrides to prevent Torn site hover animations/effects from causing button flicker.
+- Added GitHub automation to generate `GREASYFORK_ADDITIONAL_INFO.md` from `README.md` and `VERSION_HISTORY.md` on push.
+- Added local generator script (`scripts/build_greasyfork_additional_info.py`) and GitHub Action workflow for synced additional-info content.
+
 ## v0.4.19
 
 - Hardened tracked-row rendering by escaping dynamic text values before inserting HTML.
