@@ -1,13 +1,14 @@
 // ==UserScript==
 // @name         Minerva
 // @namespace    http://tampermonkey.net/
-// @version      v0.4.13
+// @version      v0.4.15
 // @description  Track Torn player activity with a floating multi-target tracker, alerts, and diagnostics.
 // @author       Beatrix [1956521]
 // @license      Proprietary - All Rights Reserved
-// @supportURL   https://github.com/Zulenka/ProjectMinerva
+// @supportURL   https://github.com/Zulenka/ProjectMinerva/issues/new/choose
 // @match        https://www.torn.com/*
 // @connect      api.torn.com
+// @connect      api.github.com
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @grant        GM_notification
@@ -21,6 +22,7 @@
     // No permission is granted to copy, modify, redistribute, or republish this script.
 
     // --- Configuration & State ---
+    const MINERVA_VERSION = "v0.4.15";
     const API_KEY_STORAGE_KEY = "torn-api-key";
     const API_KEY_VAULT_STORAGE_KEY = "torn-api-key-vault";
     const API_KEY_CACHE_STORAGE_KEY = "torn-api-key-cache";
@@ -33,6 +35,8 @@
     const WIDGET_LOCKED_STORAGE_KEY = "minerva-corner-widget-locked";
     const API_KEY_PROMPT_POS_STORAGE_KEY = "minerva-api-key-prompt-pos";
     const TOAST_HOST_POS_STORAGE_KEY = "minerva-toast-host-pos";
+    const VERSION_CHECK_LAST_AT_STORAGE_KEY = "minerva-version-check-last-at";
+    const VERSION_CHECK_DISMISSED_VERSION_STORAGE_KEY = "minerva-version-check-dismissed-version";
     const CYAN_COLOR = "#00f2ff";
     const PINK_COLOR = "#ff0055";
     const MAX_UI_LOG_LINES = 250;
@@ -41,6 +45,9 @@
     const MANUAL_PING_WINDOW_MS = 5000;
     const MANUAL_PING_MAX_CLICKS_PER_WINDOW = 4;
     const MANUAL_PING_COOLDOWN_MS = 60000;
+    const VERSION_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
+    const GITHUB_LATEST_RELEASE_API_URL = "https://api.github.com/repos/Zulenka/ProjectMinerva/releases/latest";
+    const GITHUB_RELEASES_PAGE_URL = "https://github.com/Zulenka/ProjectMinerva/releases";
     
     let apiKey = null;
     const urlParams = new URLSearchParams(window.location.search);
@@ -66,6 +73,7 @@
     let engineIntervalId = null;
     let manualPingClickTimestamps = [];
     let manualPingCooldownUntil = 0;
+    let versionCheckInFlight = false;
     let trackedTargets = GM_getValue(TRACKED_TARGETS_STORAGE_KEY, []);
     let trackedStates = {};
 
@@ -122,6 +130,9 @@
 
     function shouldIgnoreGlobalErrorEvent(e) {
         if (!e) return false;
+        const msg = String(e.message || "");
+        if (/^ResizeObserver loop completed with undelivered notifications\.?$/i.test(msg)) return true;
+        if (/^ResizeObserver loop limit exceeded\.?$/i.test(msg)) return true;
         if (isExternalExtensionSource(e.filename)) return true;
         if (e.error && e.error.stack && isExternalExtensionSource(String(e.error.stack))) return true;
         return false;
@@ -133,6 +144,7 @@
         if (!reason) return false;
         const stack = String(reason.stack || "");
         const msg = String(reason.message || reason || "");
+        if (/ResizeObserver loop (completed with undelivered notifications|limit exceeded)/i.test(msg)) return true;
         return isExternalExtensionSource(stack) || isExternalExtensionSource(msg);
     }
 
@@ -1080,6 +1092,148 @@
         setTimeout(() => {
             removeToast();
         }, durationMs);
+    }
+
+    function showMinervaUpdateToast(latestVersion, releaseUrl) {
+        const host = ensureToastHost();
+        if (!host) return;
+
+        const toast = document.createElement("div");
+        toast.style.cssText = `
+            pointer-events: auto;
+            background: rgba(5, 8, 14, 0.96);
+            color: #e8f6ff;
+            border: 1px solid rgba(255,255,255,0.12);
+            border-left: 3px solid #42ff8c;
+            border-radius: 12px;
+            box-shadow: 0 10px 24px rgba(0,0,0,0.4), 0 0 12px rgba(66,255,140,0.12);
+            padding: 10px 12px;
+            font-family: "Courier New", Courier, monospace;
+            transform: translateY(8px);
+            opacity: 0;
+            transition: opacity 0.2s ease, transform 0.2s ease;
+        `;
+        toast.innerHTML = `
+            <div data-minerva-toast-drag-handle="1" style="display:flex; align-items:center; justify-content:space-between; gap:8px; cursor:move;">
+                <div style="font-size:12px; font-weight:bold; color:#dffbff;">Minerva Update Available</div>
+                <button type="button" data-minerva-toast-close="1" title="Close" style="background:transparent; color:#9fb6c6; border:1px solid rgba(255,255,255,0.12); border-radius:5px; width:18px; height:18px; line-height:14px; padding:0; cursor:pointer; font-size:11px;">x</button>
+            </div>
+            <div style="margin-top:4px; font-size:12px; color:#b8c6d1;">Current: <span style="color:#fff;">${MINERVA_VERSION}</span> | Latest: <span style="color:#42ff8c;">${latestVersion}</span></div>
+            <div style="margin-top:8px; display:flex; gap:8px; justify-content:flex-end;">
+                <button type="button" data-minerva-update-dismiss="1" style="background:transparent; color:#aab8c2; border:1px solid rgba(255,255,255,0.12); border-radius:6px; padding:4px 8px; cursor:pointer; font-size:11px;">Dismiss</button>
+                <button type="button" data-minerva-update-open="1" style="background:rgba(66,255,140,0.08); color:#42ff8c; border:1px solid rgba(66,255,140,0.28); border-radius:6px; padding:4px 8px; cursor:pointer; font-size:11px; font-weight:bold;">Update</button>
+            </div>
+        `;
+        host.appendChild(toast);
+
+        let removed = false;
+        const removeToast = () => {
+            if (removed) return;
+            removed = true;
+            toast.style.opacity = "0";
+            toast.style.transform = "translateY(6px)";
+            setTimeout(() => toast.remove(), 220);
+        };
+
+        toast.querySelector('[data-minerva-toast-close="1"]')?.addEventListener("click", (e) => {
+            e.stopPropagation();
+            removeToast();
+        });
+        toast.querySelector('[data-minerva-update-dismiss="1"]')?.addEventListener("click", (e) => {
+            e.stopPropagation();
+            GM_setValue(VERSION_CHECK_DISMISSED_VERSION_STORAGE_KEY, latestVersion);
+            addLog(`Dismissed update prompt for ${latestVersion}.`, "INFO");
+            removeToast();
+        });
+        toast.querySelector('[data-minerva-update-open="1"]')?.addEventListener("click", (e) => {
+            e.stopPropagation();
+            window.open(releaseUrl || GITHUB_RELEASES_PAGE_URL, "_blank", "noopener,noreferrer");
+            removeToast();
+        });
+        toast.querySelector('[data-minerva-toast-drag-handle="1"]')?.addEventListener("mousedown", (e) => {
+            if (e.target instanceof Element && e.target.closest('button')) return;
+            const hostRect = host.getBoundingClientRect();
+            toastDragState = {
+                startX: e.clientX,
+                startY: e.clientY,
+                startLeft: hostRect.left,
+                startTop: hostRect.top
+            };
+            e.preventDefault();
+        });
+
+        requestAnimationFrame(() => {
+            toast.style.opacity = "1";
+            toast.style.transform = "translateY(0)";
+        });
+    }
+
+    function parseVersionParts(versionText) {
+        const normalized = String(versionText || "").trim().replace(/^v/i, "");
+        if (!normalized) return [0, 0, 0];
+        return normalized.split(".").map(part => {
+            const n = parseInt(part, 10);
+            return Number.isFinite(n) ? n : 0;
+        });
+    }
+
+    function compareVersions(a, b) {
+        const av = parseVersionParts(a);
+        const bv = parseVersionParts(b);
+        const len = Math.max(av.length, bv.length);
+        for (let i = 0; i < len; i++) {
+            const ai = av[i] || 0;
+            const bi = bv[i] || 0;
+            if (ai > bi) return 1;
+            if (ai < bi) return -1;
+        }
+        return 0;
+    }
+
+    function maybeCheckForMinervaUpdate() {
+        if (versionCheckInFlight) return;
+        const lastCheckAt = Number(GM_getValue(VERSION_CHECK_LAST_AT_STORAGE_KEY, 0));
+        if (Number.isFinite(lastCheckAt) && (Date.now() - lastCheckAt) < VERSION_CHECK_INTERVAL_MS) return;
+
+        versionCheckInFlight = true;
+        GM_setValue(VERSION_CHECK_LAST_AT_STORAGE_KEY, Date.now());
+
+        GM_xmlhttpRequest({
+            method: "GET",
+            url: GITHUB_LATEST_RELEASE_API_URL,
+            headers: {
+                "Accept": "application/vnd.github+json"
+            },
+            timeout: 10000,
+            onload: function(response) {
+                versionCheckInFlight = false;
+                if (response.status !== 200) {
+                    addLog(`Version check skipped (HTTP ${response.status}).`, "DIAGNOSTIC");
+                    return;
+                }
+                try {
+                    const data = JSON.parse(response.responseText || "{}");
+                    const latest = String(data.tag_name || "").trim();
+                    if (!latest) return;
+                    const current = MINERVA_VERSION;
+                    if (compareVersions(latest, current) <= 0) return;
+                    const dismissed = String(GM_getValue(VERSION_CHECK_DISMISSED_VERSION_STORAGE_KEY, "") || "").trim();
+                    if (dismissed && dismissed === latest) return;
+                    addLog(`New Minerva version available: ${latest} (current ${current}).`, "INFO");
+                    showMinervaUpdateToast(latest, String(data.html_url || GITHUB_RELEASES_PAGE_URL));
+                } catch (e) {
+                    addLog(`Version check parse failed: ${e.message}`, "DIAGNOSTIC");
+                }
+            },
+            ontimeout: function() {
+                versionCheckInFlight = false;
+                addLog("Version check timed out.", "DIAGNOSTIC");
+            },
+            onerror: function() {
+                versionCheckInFlight = false;
+                addLog("Version check network error.", "DIAGNOSTIC");
+            }
+        });
     }
 
     function getStatusColor(status) {
@@ -2228,7 +2382,7 @@
     }
 
     function bootMinerva() {
-        addLog(`Booting Minerva v0.4.13. UA=${navigator.userAgent}`, "DIAGNOSTIC");
+        addLog(`Booting Minerva ${MINERVA_VERSION}. UA=${navigator.userAgent}`, "DIAGNOSTIC");
         addLog(`Initial state loaded. tracking=${isTracking}, targetId=${targetId || "-"}, trackedTargets=[${trackedTargets.join(", ")}], threshold=${thresholdSeconds}s, maxTracked=${maxTrackedTargets}`, "DIAGNOSTIC");
         injectSafely();
         injectCornerWidget();
@@ -2240,6 +2394,7 @@
         if (isTracking) {
             setTimeout(checkTargetActivity, 1500); 
         }
+        setTimeout(maybeCheckForMinervaUpdate, 2500);
     }
 
     function promptForApiKeyAndBoot(message = "Enter your Torn Public API key to enable Minerva tracking.") {

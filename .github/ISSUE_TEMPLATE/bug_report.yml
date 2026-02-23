@@ -1,0 +1,87 @@
+name: Bug report
+description: Report a Minerva bug or regression
+title: "[Bug] "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a Minerva issue.
+        Please include the Minerva log lines when possible.
+
+  - type: input
+    id: minerva_version
+    attributes:
+      label: Minerva version
+      description: Example: v0.4.14
+      placeholder: v0.4.14
+    validations:
+      required: true
+
+  - type: input
+    id: page_url
+    attributes:
+      label: Torn page URL (or path)
+      description: Remove anything sensitive if needed
+      placeholder: https://www.torn.com/profiles.php?XID=...
+    validations:
+      required: true
+
+  - type: input
+    id: browser
+    attributes:
+      label: Browser + version
+      placeholder: Chrome 123 / Firefox 124
+    validations:
+      required: true
+
+  - type: input
+    id: script_manager
+    attributes:
+      label: Script manager + version
+      placeholder: Tampermonkey 5.x
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open ...
+        2. Click ...
+        3. Observe ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Minerva logs (last 20-50 lines)
+      description: Paste from the Minerva log panel if available
+      render: text
+    validations:
+      required: false
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots / video (optional)
+      description: Drag and drop screenshots here if helpful
+    validations:
+      required: false
