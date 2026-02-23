@@ -1,0 +1,257 @@
+<div style="background-color:#0f1115; color:#e8eef5; border:1px solid #2a2f38;">
+
+<h1 style="color:#ffffff;">Minerva Features Guide</h1>
+
+<p>Minerva is a Torn userscript that helps you monitor player activity and manage a small target list in a clean, visual way.</p>
+
+<p>This guide is written in plain language and avoids technical details.</p>
+
+<h2 style="color:#dffbff;">What Minerva Helps You Do</h2>
+
+<ul>
+<li>Watch a player's recent activity</li>
+<li>Track multiple targets manually</li>
+<li>See status updates in one place</li>
+<li>Get quick alerts when something changes</li>
+<li>Launch fast actions (like attack) from the tracker</li>
+</ul>
+
+<h2 style="color:#dffbff;">Main Profile Panel</h2>
+
+<p>Minerva shows a panel on profile pages.</p>
+
+<p>The panel gives you a status display, a countdown to the next check, and settings/controls.</p>
+
+<p>On your own profile page, settings can be opened from the gear button so the main panel stays cleaner.</p>
+
+<h2 style="color:#dffbff;">Status Display</h2>
+
+<p>Minerva shows a status at the top of the panel.</p>
+
+<p>Common statuses include:</p>
+
+<ul>
+<li><strong>ACTIVE</strong></li>
+<li><strong>INACTIVE</strong></li>
+<li><strong>NO TARGETS</strong></li>
+<li><strong>NO API KEY</strong></li>
+<li><strong>ACTIVITY UNAVAILABLE</strong></li>
+</ul>
+
+<p>These tell you whether Minerva is currently able to check activity and what it sees for the current target.</p>
+
+<h2 style="color:#dffbff;">Next Ping Countdown</h2>
+
+<p>Minerva checks on a timer.</p>
+
+<ul>
+<li>The countdown shows when the next automatic check will happen.</li>
+<li>You can also use manual ping buttons for immediate checks.</li>
+</ul>
+
+<h2 style="color:#dffbff;">Target List Is Manual</h2>
+
+<p>Minerva does not automatically add every profile you visit.</p>
+
+<p>You choose who gets tracked using <strong>Track Current</strong> and <strong>Untrack Current</strong>.</p>
+
+<h2 style="color:#dffbff;">Settings (Easy Overview)</h2>
+
+<h3 style="color:#bfefff;">Inactive Threshold</h3>
+
+<p>This controls how recent activity is treated.</p>
+
+<p>Example: if your threshold is 5 minutes, a player who was active very recently may still show as <strong>ACTIVE</strong>.</p>
+
+<h3 style="color:#bfefff;">Max Tracked</h3>
+
+<p>This controls how many targets Minerva keeps in your tracked list.</p>
+
+<p>If the list gets too large, older entries may be pushed out based on your current limit.</p>
+
+<h2 style="color:#dffbff;">Main Panel Buttons</h2>
+
+<ul>
+<li><strong>Track Current / Untrack Current</strong>: Add or remove the profile you are viewing</li>
+<li><strong>Reset API Key</strong>: Replace your stored Torn API key</li>
+<li><strong>View Toast</strong>: Show a preview popup so you can test placement</li>
+<li><strong>Clear Tracked</strong>: Clear the tracked list (keeps the current profile)</li>
+<li><strong>Clear</strong>: Clear the Minerva on-screen log</li>
+<li><strong>Show Logs</strong>: Open or close the log panel</li>
+</ul>
+
+<h2 style="color:#dffbff;">Corner Widget (Floating Tracker)</h2>
+
+<p>Minerva also includes a floating corner widget that stays available across Torn pages.</p>
+
+<p>This lets you monitor tracked targets even when you are not on a profile page.</p>
+
+<h3 style="color:#bfefff;">What the Corner Widget Shows</h3>
+
+<ul>
+<li>Overall Minerva status</li>
+<li>Your current threshold</li>
+<li>A stacked list of tracked profiles</li>
+<li>A cooldown indicator when manual ping is limited</li>
+</ul>
+
+<h3 style="color:#bfefff;">Corner Widget Controls</h3>
+
+<ul>
+<li>Lock / Unlock position</li>
+<li>Compact / Expand view</li>
+<li>Hide widget</li>
+<li>Reopen hidden widget from the small Minerva tab</li>
+</ul>
+
+<p>You can move the widget and Minerva remembers where you placed it.</p>
+
+<h2 style="color:#dffbff;">Tracked Profile Rows</h2>
+
+<p>Each tracked target appears as a row in the corner widget.</p>
+
+<p>Each row shows:</p>
+
+<ul>
+<li>Name (or ID)</li>
+<li>Status</li>
+<li>Last activity text (for example: "2 minutes ago")</li>
+</ul>
+
+<h3 style="color:#bfefff;">Row Actions</h3>
+
+<ul>
+<li><strong>Ping Now</strong>: Check that target immediately</li>
+<li><strong>Attack</strong>: Open the attack page in a new tab</li>
+<li><strong>Remove</strong>: Remove that target from the tracked list</li>
+</ul>
+
+<h2 style="color:#dffbff;">Status Labels in the Tracked List</h2>
+
+<p>Minerva separates "recent activity" from "time since last seen" so the list is easier to read for timing.</p>
+
+<p>You may see labels like:</p>
+
+<ul>
+<li>ACTIVE</li>
+<li>INACTIVE &lt;5m</li>
+<li>INACTIVE 5m+</li>
+</ul>
+
+<p>This is especially useful if you care about short activity windows.</p>
+
+<h2 style="color:#dffbff;">Manual Ping Cooldown (Anti-Spam Protection)</h2>
+
+<p>Minerva limits repeated manual ping clicks in a short period.</p>
+
+<p>If you click too many times too quickly:</p>
+
+<ul>
+<li>Ping buttons are temporarily disabled</li>
+<li>A cooldown badge appears in the corner widget</li>
+</ul>
+
+<p>This helps prevent accidental spam and keeps the tracker stable.</p>
+
+<h2 style="color:#dffbff;">Notifications and Toasts</h2>
+
+<p>Minerva can notify you when tracked status changes happen.</p>
+
+<h3 style="color:#bfefff;">In-Page Toasts</h3>
+
+<p>When you are actively using Torn:</p>
+
+<ul>
+<li>Minerva shows a popup toast on the page</li>
+<li>The toast can be closed</li>
+<li>The toast position can be moved</li>
+<li>Minerva remembers the toast position</li>
+</ul>
+
+<h3 style="color:#bfefff;">Background Notifications</h3>
+
+<p>When the Torn tab is not active:</p>
+
+<ul>
+<li>Minerva tries browser notifications first</li>
+<li>If needed, it falls back to Tampermonkey notifications</li>
+</ul>
+
+<p>Minerva also spaces out alerts so you do not get flooded.</p>
+
+<h2 style="color:#dffbff;">API Key and Passphrase (Simple Explanation)</h2>
+
+<p>Minerva needs a Torn API key to read player activity.</p>
+
+<h3 style="color:#bfefff;">API Key Entry</h3>
+
+<p>Minerva uses its own popup window for entering and updating your API key.</p>
+
+<p>It also includes an <strong>Open API Page</strong> button to help you get to Torn's settings page.</p>
+
+<h3 style="color:#bfefff;">Encrypted Key Storage</h3>
+
+<p>Minerva can store your API key in an encrypted vault.</p>
+
+<ul>
+<li>You create a Minerva passphrase</li>
+<li>Minerva asks for it again every 7 days to unlock the key</li>
+</ul>
+
+<h3 style="color:#bfefff;">Forgot Passphrase</h3>
+
+<p>If you forget your passphrase, Minerva lets you reset the stored vault and enter a new API key and passphrase.</p>
+
+<h2 style="color:#dffbff;">Logs (Troubleshooting)</h2>
+
+<p>Minerva includes a built-in log panel.</p>
+
+<p>This helps when:</p>
+
+<ul>
+<li>Minerva does not appear on a page</li>
+<li>Activity is not being returned</li>
+<li>Requests fail</li>
+<li>You want to confirm what Minerva is doing</li>
+</ul>
+
+<p>The log is meant to be readable and useful without needing to inspect browser developer tools.</p>
+
+<h2 style="color:#dffbff;">Works Across Different Profile Layouts</h2>
+
+<p>Torn profile pages do not always use the same layout.</p>
+
+<p>Minerva tries several ways to place its panel:</p>
+
+<ul>
+<li>Known profile locations</li>
+<li>Fallback anchor points</li>
+<li>Dynamic layout matching</li>
+<li>Generic fallback placement</li>
+</ul>
+
+<p>This helps Minerva keep working when Torn changes page structure.</p>
+
+<h2 style="color:#dffbff;">Quick Start</h2>
+
+<ol>
+<li>Open a Torn profile page.</li>
+<li>Enter your API key when Minerva asks.</li>
+<li>Click Track Current.</li>
+<li>Set your preferred inactive threshold.</li>
+<li>Use the corner widget to watch your tracked targets.</li>
+</ol>
+
+<h2 style="color:#dffbff;">Summary</h2>
+
+<p>Minerva is built to be:</p>
+
+<ul>
+<li>Manual (you choose who is tracked)</li>
+<li>Fast (quick row actions and pings)</li>
+<li>Visual (clear statuses and toasts)</li>
+<li>Flexible (movable widget and toast)</li>
+<li>Practical (works across Torn pages and different profile layouts)</li>
+</ul>
+
+</div>
