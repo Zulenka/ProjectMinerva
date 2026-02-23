@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Minerva
 // @namespace    http://tampermonkey.net/
-// @version      v0.4.10
+// @version      v0.4.11
 // @description  Track Torn player activity with a floating multi-target tracker, alerts, and diagnostics.
 // @author       Beatrix
 // @license      Proprietary - All Rights Reserved
@@ -2074,7 +2074,9 @@
                     } else {
                         actualPresenceStatus = `INACTIVE ${thresholdLabel}+`;
                     }
-                    const relativeText = lastActionData.relative || `${secondsSinceActive}s ago`;
+                    const relativeText = apiLastActionStatus === "online"
+                        ? "Online now"
+                        : (lastActionData.relative || `${secondsSinceActive}s ago`);
                     trackedStates[id] = trackedStates[id] || { status: "UNKNOWN", thresholdStatus: "UNKNOWN", last: "--", name: String(id) };
                     trackedStates[id].name = profileName;
                     const previousThresholdStatus = trackedStates[id].thresholdStatus || "UNKNOWN";
@@ -2208,7 +2210,7 @@
     }
 
     function bootMinerva() {
-        addLog(`Booting Minerva v0.4.10. UA=${navigator.userAgent}`, "DIAGNOSTIC");
+        addLog(`Booting Minerva v0.4.11. UA=${navigator.userAgent}`, "DIAGNOSTIC");
         addLog(`Initial state loaded. tracking=${isTracking}, targetId=${targetId || "-"}, trackedTargets=[${trackedTargets.join(", ")}], threshold=${thresholdSeconds}s, maxTracked=${maxTrackedTargets}`, "DIAGNOSTIC");
         injectSafely();
         injectCornerWidget();
