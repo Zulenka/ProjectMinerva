@@ -346,6 +346,10 @@ If you publish updates, keep attribution and clearly document behavioral changes
 
 This file is the source of truth for Minerva release notes on GitHub.
 
+## v0.4.21
+
+- Updated Minerva toasts/alerts to display tracked target names (with ID fallback) instead of raw ID-only text.
+
 ## v0.4.20
 
 - Added cross-tab tracked-target syncing so tracked users persist/update across Torn pages and browser tabs without waiting for reloads.
