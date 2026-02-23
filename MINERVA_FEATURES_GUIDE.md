@@ -2,7 +2,7 @@
 
 Minerva is a Torn userscript that helps you monitor player activity and manage a small target list in a clean, visual way.
 
-This guide is written in plain language and avoids technical details.
+This guide is written in plain language and focuses on what Minerva does in day-to-day use.
 
 ## What Minerva Helps You Do
 
@@ -14,95 +14,96 @@ This guide is written in plain language and avoids technical details.
 
 ## Main Profile Panel
 
-Minerva shows a panel on profile pages.
+Minerva shows a panel on Torn profile pages.
 
 The panel gives you:
 
 - A status display
-- A countdown to the next check
-- Settings and controls
+- A countdown to the next automatic check
+- Settings and quick controls
+- A built-in log panel (optional)
 
-On your own profile page, settings can be opened from the gear button so the main panel stays cleaner.
+On your own profile page, Minerva keeps the main panel cleaner by moving settings into a gear popup.
 
 ## Status Display
 
-Minerva shows a status at the top of the panel.
+Minerva shows a status at the top of the panel so you can see the current state at a glance.
 
 Common statuses include:
 
-- ACTIVE
-- INACTIVE
-- NO TARGETS
-- NO API KEY
-- ACTIVITY UNAVAILABLE
+- `ACTIVE`
+- `INACTIVE`
+- `NO TARGETS`
+- `NO API KEY`
+- `ACTIVITY UNAVAILABLE`
+- `API TIMEOUT`
+- `NETWORK ERROR`
 
-These tell you whether Minerva is currently able to check activity and what it sees for the current target.
+These tell you whether Minerva is actively checking, whether the current target appears recently active, or whether something needs your attention.
 
 ## Next Ping Countdown
 
 Minerva checks on a timer.
 
-- The countdown shows when the next automatic check will happen.
-- You can also use manual ping buttons for immediate checks.
+- The countdown shows when the next automatic check will happen
+- You can still run manual checks at any time using row buttons in the corner widget
 
 ## Target List Is Manual
 
-Minerva does not automatically add every profile you visit.
+Minerva does **not** automatically add every profile you visit.
 
-You choose who gets tracked.
+You choose who gets tracked using:
 
-Use:
+- `Track Current`
+- `Untrack Current`
 
-- Track Current
-- Untrack Current
-
-This keeps your tracked list intentional and easy to manage.
+This keeps your list intentional and avoids clutter.
 
 ## Settings (Easy Overview)
 
-Minerva settings are designed to be simple and practical.
+Minerva keeps settings simple and practical.
 
 ### Inactive Threshold
 
-This controls how recent activity is treated.
+This controls how Minerva treats recent activity.
 
 Example:
 
-- If your threshold is 5 minutes, a player who was active very recently may still show as ACTIVE.
+- If your threshold is `5 minutes`, someone who was active very recently may still appear as `ACTIVE` in the main status
 
 ### Max Tracked
 
 This controls how many targets Minerva keeps in your tracked list.
 
-If the list gets too large, older entries may be pushed out based on your current limit.
+If the list gets too large, Minerva trims it to your selected limit.
 
 ## Main Panel Buttons
 
 Minerva includes quick controls in the settings area.
 
-- Track Current / Untrack Current: Add or remove the profile you are viewing
-- Reset API Key: Replace your stored Torn API key
-- View Toast: Show a preview popup so you can test placement
-- Clear Tracked: Clear the tracked list (keeps the current profile)
-- Clear: Clear the Minerva on-screen log
-- Show Logs: Open or close the log panel
+- `Track Current / Untrack Current` - Add or remove the profile you are viewing
+- `Reset API Key` - Replace your stored Torn API key
+- `View Toast` - Show a preview popup so you can test toast placement
+- `Clear Tracked` - Clear the tracked list (keeps the current profile)
+- `Clear` - Clear the Minerva on-screen log
+- `Show Logs` - Open or close the log panel
 
 ## Corner Widget (Floating Tracker)
 
-Minerva also includes a floating corner widget that stays available across Torn pages.
+Minerva includes a floating corner widget that stays available across Torn pages.
 
-This lets you monitor tracked targets even when you are not on a profile page.
+This lets you monitor tracked targets even when you are not currently on a profile page.
 
 ### What the Corner Widget Shows
 
 - Overall Minerva status
 - Your current threshold
 - A stacked list of tracked profiles
-- A cooldown indicator when manual ping is limited
+- A manual ping cooldown indicator (when active)
 
-## Corner Widget Controls
+### Corner Widget Controls
 
-The corner widget has small controls for layout and convenience.
+The widget includes small controls for layout and convenience.
 
 - Lock / Unlock position
 - Compact / Expand view
@@ -119,25 +120,25 @@ Each row shows:
 
 - Name (or ID)
 - Status
-- Last activity text (for example: "2 minutes ago")
+- Last activity text (for example, `2 minutes ago`)
 
 ### Row Actions
 
-Each tracked row includes quick buttons:
+Each row includes quick action buttons:
 
-- Ping Now: Check that target immediately
-- Attack: Open the attack page in a new tab
-- Remove: Remove that target from the tracked list
+- `↻` Ping Now - Check that target immediately
+- `⚔` Attack - Open the attack page in a new tab
+- `x` Remove - Remove that target from the tracked list
 
 ## Status Labels in the Tracked List
 
-Minerva separates "recent activity" from "time since last seen" so the list is easier to read for timing.
+Minerva separates "recent activity" from "time since last seen" so the list is easier to read when timing matters.
 
 You may see labels like:
 
-- ACTIVE
-- INACTIVE <5m
-- INACTIVE 5m+
+- `ACTIVE`
+- `INACTIVE <5m`
+- `INACTIVE 5m+`
 
 This is especially useful if you care about short activity windows.
 
@@ -182,7 +183,7 @@ Minerva needs a Torn API key to read player activity.
 
 Minerva uses its own popup window for entering and updating your API key.
 
-It also includes an "Open API Page" button to help you get to Torn's settings page.
+It also includes an `Open API Page` button to help you get to Torn's settings page.
 
 ### Encrypted Key Storage
 
@@ -206,7 +207,7 @@ This helps when:
 - Requests fail
 - You want to confirm what Minerva is doing
 
-The log is meant to be readable and useful without needing to inspect browser developer tools.
+The log is meant to be readable and useful without needing browser developer tools.
 
 ## Works Across Different Profile Layouts
 
@@ -225,7 +226,7 @@ This helps Minerva keep working when Torn changes page structure.
 
 1. Open a Torn profile page.
 2. Enter your API key when Minerva asks.
-3. Click Track Current.
+3. Click `Track Current`.
 4. Set your preferred inactive threshold.
 5. Use the corner widget to watch your tracked targets.
 
@@ -239,3 +240,6 @@ Minerva is built to be:
 - Flexible (movable widget and toast)
 - Practical (works across Torn pages and different profile layouts)
 
+---
+
+For implementation details, architecture, and code-level behavior, see [README.md](README.md).

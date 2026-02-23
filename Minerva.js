@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Minerva
 // @namespace    http://tampermonkey.net/
-// @version      v0.4.7
-// @description  Track a player's activity on Torn.com with X-Ray diagnostics.
+// @version      v0.4.8
+// @description  Track Torn player activity with a floating multi-target tracker, alerts, and diagnostics.
 // @author       Beatrix
 // @match        https://www.torn.com/*
 // @connect      api.torn.com
@@ -2182,7 +2182,7 @@
     }
 
     function bootMinerva() {
-        addLog(`Booting Minerva v0.4.7. UA=${navigator.userAgent}`, "DIAGNOSTIC");
+        addLog(`Booting Minerva v0.4.8. UA=${navigator.userAgent}`, "DIAGNOSTIC");
         addLog(`Initial state loaded. tracking=${isTracking}, targetId=${targetId || "-"}, trackedTargets=[${trackedTargets.join(", ")}], threshold=${thresholdSeconds}s, maxTracked=${maxTrackedTargets}`, "DIAGNOSTIC");
         injectSafely();
         injectCornerWidget();
