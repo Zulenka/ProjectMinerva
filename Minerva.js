@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Minerva
 // @namespace    http://tampermonkey.net/
-// @version      v0.4.15
+// @version      v0.4.16
 // @description  Track Torn player activity with a floating multi-target tracker, alerts, and diagnostics.
 // @author       Beatrix [1956521]
 // @license      Proprietary - All Rights Reserved
@@ -22,7 +22,7 @@
     // No permission is granted to copy, modify, redistribute, or republish this script.
 
     // --- Configuration & State ---
-    const MINERVA_VERSION = "v0.4.15";
+    const MINERVA_VERSION = "v0.4.16";
     const API_KEY_STORAGE_KEY = "torn-api-key";
     const API_KEY_VAULT_STORAGE_KEY = "torn-api-key-vault";
     const API_KEY_CACHE_STORAGE_KEY = "torn-api-key-cache";
@@ -71,6 +71,7 @@
     let pollCycleSeq = 0;
     let injectionFailureLogged = false;
     let engineIntervalId = null;
+    let lastInjectionAttemptAt = 0;
     let manualPingClickTimestamps = [];
     let manualPingCooldownUntil = 0;
     let versionCheckInFlight = false;
@@ -1846,42 +1847,94 @@
     }
 
     // --- Bulletproof Injection Engine ---
+    function isProfilePageContext() {
+        const path = String(window.location.pathname || "").toLowerCase();
+        if (path.includes("/profiles.php")) return true;
+        if (path.includes("/loader.php")) {
+            const sid = String(new URLSearchParams(window.location.search).get("sid") || "").toLowerCase();
+            if (sid.includes("profile")) return true;
+        }
+        return !!targetId;
+    }
+
+    function describeInjectionNode(node) {
+        if (!(node instanceof Element)) return "(invalid)";
+        const id = node.id ? `#${node.id}` : "";
+        const cls = typeof node.className === "string" && node.className.trim()
+            ? `.${node.className.trim().split(/\s+/).slice(0, 3).join(".")}`
+            : "";
+        return `${node.tagName.toLowerCase()}${id}${cls}`;
+    }
+
     function scoreInjectionHost(node) {
-        if (!(node instanceof Element)) return -Infinity;
-        if (node.id === "minerva-master-container") return -Infinity;
-        if (node.contains(document.getElementById("minerva-master-container"))) return -Infinity;
+        if (!(node instanceof Element)) return { score: -Infinity, rejectReason: "not-element" };
+        if (node.id === "minerva-master-container") return { score: -Infinity, rejectReason: "self" };
+        const existingUi = document.getElementById("minerva-master-container");
+        if (existingUi && node.contains(existingUi)) return { score: -Infinity, rejectReason: "contains-existing-ui" };
 
         const rect = node.getBoundingClientRect();
         const style = window.getComputedStyle(node);
-        if (style.display === "none" || style.visibility === "hidden") return -Infinity;
-        if (rect.width < 260 || rect.height < 80) return -Infinity;
+        if (style.display === "none" || style.visibility === "hidden") return { score: -Infinity, rejectReason: "hidden" };
+        if (rect.width < 260 || rect.height < 80) return { score: -Infinity, rejectReason: `too-small:${Math.round(rect.width)}x${Math.round(rect.height)}` };
 
         let score = 0;
+        const reasons = [];
 
-        // Prefer visible in-flow containers near the top content area.
-        if (node.offsetParent) score += 10;
-        score += Math.max(0, 120 - Math.min(120, Math.abs(rect.top - 80)));
-        score += Math.max(0, Math.min(80, rect.width / 12));
+        if (node.offsetParent) {
+            score += 10;
+            reasons.push("visible+10");
+        }
+        const topScore = Math.max(0, 120 - Math.min(120, Math.abs(rect.top - 80)));
+        score += topScore;
+        reasons.push(`top+${Math.round(topScore)}`);
+        const widthScore = Math.max(0, Math.min(80, rect.width / 12));
+        score += widthScore;
+        reasons.push(`width+${Math.round(widthScore)}`);
 
-        // Prefer profile-ish containers.
         const ident = `${node.id || ""} ${node.className || ""}`.toLowerCase();
-        if (/profile|user|info|content|wrapper|container/.test(ident)) score += 35;
-        if (/maincontainer|content-wrapper|profileroot/.test(ident)) score += 25;
+        if (/profile|user|info|content|wrapper|container/.test(ident)) {
+            score += 35;
+            reasons.push("profile-ident+35");
+        }
+        if (/maincontainer|content-wrapper|profileroot|user-information|actions/.test(ident)) {
+            score += 25;
+            reasons.push("strong-ident+25");
+        }
 
-        // Prefer containers that contain profile-related anchors/actions.
         const profileLinks = node.querySelectorAll('a[href*="profiles.php?XID="]').length;
         const attackLinks = node.querySelectorAll('a[href*="sid=attack"], a[href*="attack"]').length;
         const actionButtons = node.querySelectorAll('a,button').length;
-        score += Math.min(profileLinks * 20, 80);
-        score += Math.min(attackLinks * 25, 50);
-        score += Math.min(actionButtons, 20);
+        const headingText = Array.from(node.querySelectorAll("h1,h2,h3,h4,header,.title"))
+            .map(el => (el.textContent || "").trim().toLowerCase())
+            .slice(0, 10)
+            .join(" | ");
+        if (/user information|actions/.test(headingText)) {
+            score += 30;
+            reasons.push("heading-match+30");
+        }
 
-        // Penalize huge generic roots unless nothing else is available.
-        if (node === document.body) score -= 80;
-        if (node === document.documentElement) score -= 120;
-        if (rect.height > window.innerHeight * 0.95 && rect.width > window.innerWidth * 0.95) score -= 35;
+        const profileLinkScore = Math.min(profileLinks * 20, 80);
+        const attackLinkScore = Math.min(attackLinks * 25, 50);
+        const actionButtonScore = Math.min(actionButtons, 20);
+        score += profileLinkScore + attackLinkScore + actionButtonScore;
+        if (profileLinkScore) reasons.push(`profile-links+${profileLinkScore}`);
+        if (attackLinkScore) reasons.push(`attack-links+${attackLinkScore}`);
+        if (actionButtonScore) reasons.push(`actions+${actionButtonScore}`);
 
-        return score;
+        if (node === document.body) {
+            score -= 80;
+            reasons.push("body-80");
+        }
+        if (node === document.documentElement) {
+            score -= 120;
+            reasons.push("html-120");
+        }
+        if (rect.height > window.innerHeight * 0.95 && rect.width > window.innerWidth * 0.95) {
+            score -= 35;
+            reasons.push("fullpage-35");
+        }
+
+        return { score, reasons, rect, desc: describeInjectionNode(node) };
     }
 
     function findBestDynamicInjectionHost(uiElement) {
@@ -1890,9 +1943,16 @@
         const seedSelectors = [
             'a[href*="profiles.php?XID="]',
             'a[href*="sid=attack"]',
+            'a[href*="loader.php?sid=attack"]',
+            '[id*="profile"]',
             '[class*="profile"]',
             '[class*="user-information"]',
+            '[class*="userInfo"]',
             '[class*="actions"]',
+            '[class*="action"]',
+            '[class*="sortable"]',
+            '[class*="box"]',
+            'h1, h2, h3',
             '#mainContainer',
             '#content-wrapper',
             '#content'
@@ -1903,7 +1963,7 @@
                 if (!(el instanceof Element)) return;
                 let cur = el;
                 let depth = 0;
-                while (cur && depth < 4) {
+                while (cur && depth < 5) {
                     candidates.add(cur);
                     cur = cur.parentElement;
                     depth++;
@@ -1913,26 +1973,54 @@
 
         let bestHost = null;
         let bestScore = -Infinity;
+        const ranked = [];
         for (const node of candidates) {
             if (!(node instanceof Element)) continue;
             if (node.contains(uiElement)) continue;
-            const score = scoreInjectionHost(node);
-            if (score > bestScore) {
-                bestScore = score;
+            const scored = scoreInjectionHost(node);
+            if (Number.isFinite(scored.score)) ranked.push(scored);
+            if (scored.score > bestScore) {
+                bestScore = scored.score;
                 bestHost = node;
             }
         }
+        ranked.sort((a, b) => b.score - a.score);
 
         if (bestHost && bestScore > 20) {
-            return { host: bestHost, score: bestScore };
+            return { host: bestHost, score: bestScore, rankedTop: ranked.slice(0, 5) };
         }
-        return null;
+        return { host: null, score: bestScore, rankedTop: ranked.slice(0, 5) };
+    }
+
+    function injectUiAsOverlayFallback(uiElement) {
+        if (!uiElement || document.getElementById("minerva-profile-overlay-host")) return false;
+        if (!document.body) return false;
+        const overlayHost = document.createElement("div");
+        overlayHost.id = "minerva-profile-overlay-host";
+        overlayHost.style.cssText = `
+            position: fixed;
+            top: 12px;
+            left: 12px;
+            width: min(560px, calc(100vw - 24px));
+            max-height: calc(100vh - 24px);
+            overflow: auto;
+            z-index: 10024;
+        `;
+        uiElement.style.width = "100%";
+        uiElement.style.marginBottom = "0";
+        overlayHost.appendChild(uiElement);
+        document.body.appendChild(overlayHost);
+        addLog("Minerva UI injected via guarded overlay fallback.", "ERROR");
+        return true;
     }
 
     function injectSafely() {
+        if (!isProfilePageContext()) return;
         if (!targetId) return;
         const uiElement = buildUI();
         if (!uiElement) return;
+        lastInjectionAttemptAt = Date.now();
+        injectionFailureLogged = false;
 
         const possibleTargets = [
             '.profile-wrapper',
@@ -1942,6 +2030,9 @@
             '.profile-mini-root',
             '[class*="profile-root"]',
             '[class*="profile-wrapper"]',
+            '[class*="user-information"]',
+            '[class*="actions"]',
+            '[class*="profile"] [class*="column"]',
             '.content-wrapper',
             '.content-wrapper > div',
             '.content-title + div',
@@ -1968,10 +2059,20 @@
                 '.profile-container',
                 '[class*="user-information"]',
                 '[class*="profile"] [class*="information"]',
-                '[class*="actions"]'
+                '[class*="actions"]',
+                'h2',
+                'h3'
             ];
             for (const selector of anchors) {
-                const anchor = document.querySelector(selector);
+                const anchorCandidates = Array.from(document.querySelectorAll(selector));
+                const anchor = anchorCandidates.find((el) => {
+                    if (!(el instanceof Element)) return false;
+                    if (/^H[23]$/i.test(el.tagName)) {
+                        const t = String(el.textContent || "").toLowerCase();
+                        return /user information|actions/.test(t);
+                    }
+                    return true;
+                });
                 if (!anchor) continue;
                 const host = anchor.closest('div[class], section, article') || anchor.parentElement;
                 if (host && host.parentElement && !host.contains(uiElement)) {
@@ -1988,14 +2089,16 @@
                 addLog(`Minerva UI injected via dynamic layout match (score=${Math.round(dynamicHost.score)}).`, "INFO");
                 return true;
             }
+            if (dynamicHost && dynamicHost.rankedTop && dynamicHost.rankedTop.length) {
+                addLog(`Dynamic injection candidates: ${dynamicHost.rankedTop.map(c => `${c.desc}:${Math.round(c.score)}`).join(" | ")}`, "DIAGNOSTIC");
+            }
 
             // Last in-flow fallback: prepend into a stable page container if profile selectors miss.
             const genericHosts = [
                 '#mainContainer',
                 '#content-wrapper',
                 '#content',
-                'main',
-                'body'
+                'main'
             ];
             for (const selector of genericHosts) {
                 const host = document.querySelector(selector);
@@ -2004,6 +2107,8 @@
                 addLog(`Minerva UI injected via generic fallback ${selector}`, "INFO");
                 return true;
             }
+
+            if (injectUiAsOverlayFallback(uiElement)) return true;
 
             return false;
         };
@@ -2031,6 +2136,10 @@
                 injectionFailureLogged = true;
                 addLog(`Profile UI injection still missing after retries. selectors=${possibleTargets.length}, pageTitle=${document.title || "-"}`, "ERROR");
                 addLog(`First anchors present snapshot: user-information=${!!document.querySelector('.user-information')}, profile-container=${!!document.querySelector('.profile-container')}, actions=${!!document.querySelector('[class*=\"actions\"]')}`, "DIAGNOSTIC");
+                const dyn = findBestDynamicInjectionHost(uiElement);
+                if (dyn && dyn.rankedTop && dyn.rankedTop.length) {
+                    addLog(`Top dynamic candidates: ${dyn.rankedTop.map(c => `${c.desc}:${Math.round(c.score)}[${(c.reasons || []).slice(0, 3).join(",")}]`).join(" || ")}`, "DIAGNOSTIC");
+                }
             }
         }, 4000);
     }
@@ -2367,6 +2476,13 @@
     function runEngine() {
         syncTrackingStateFromUi();
         updateManualPingCooldownVisuals();
+
+        if (isProfilePageContext() && targetId && !document.getElementById("minerva-master-container")) {
+            if ((Date.now() - lastInjectionAttemptAt) > 5000) {
+                addLog("Profile UI missing; retrying injection.", "DIAGNOSTIC");
+                injectSafely();
+            }
+        }
 
         if (isTracking) {
             let timerDisplay = document.getElementById("minerva-countdown");

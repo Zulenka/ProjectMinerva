@@ -2,6 +2,12 @@
 
 This file is the source of truth for Minerva release notes on GitHub.
 
+## v0.4.16
+
+- Improved profile UI injection reliability across more Torn profile layouts (including pages with extra overlays/widgets).
+- Added richer dynamic-host diagnostics and a guarded overlay fallback when in-flow insertion fails.
+- Added automatic UI reinjection checks if the profile DOM is rebuilt after page load.
+
 ## v0.4.15
 
 - Filtered benign `ResizeObserver` browser warnings out of Minerva's global error logging to reduce log noise.
