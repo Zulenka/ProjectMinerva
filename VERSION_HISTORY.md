@@ -31,13 +31,3 @@ This file is the source of truth for Minerva release notes on GitHub.
 ## v0.4.8
 
 - Updated userscript description wording for publish/readability.
-
-## Release Process (Recommended)
-
-When shipping a new version:
-
-1. Bump `@version` in `Minerva.js`
-2. Update the Minerva boot log version string in `Minerva.js`
-3. Add a new top entry to `VERSION_HISTORY.md`
-4. Update the version-history block in `MINERVA_FEATURES_GUIDE_GREASYFORK.html` (Additional Info)
-5. Commit and push
