@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Minerva
 // @namespace    http://tampermonkey.net/
-// @version      v0.4.11
+// @version      v0.4.13
 // @description  Track Torn player activity with a floating multi-target tracker, alerts, and diagnostics.
 // @author       Beatrix
 // @license      Proprietary - All Rights Reserved
@@ -77,7 +77,7 @@
     trackedTargets = trackedTargets.slice(0, maxTrackedTargets);
     GM_setValue(TRACKED_TARGETS_STORAGE_KEY, trackedTargets);
     trackedTargets.forEach(id => {
-        trackedStates[id] = trackedStates[id] || { status: "UNKNOWN", thresholdStatus: "UNKNOWN", last: "--", name: id };
+        trackedStates[id] = trackedStates[id] || { status: "UNKNOWN", thresholdStatus: "UNKNOWN", last: "--", name: id, isHospitalized: null };
     });
 
     // --- Logging System ---
@@ -541,6 +541,10 @@
 
     function getAttackUrl(id) {
         return `https://www.torn.com/loader.php?sid=attack&user2ID=${encodeURIComponent(String(id))}`;
+    }
+
+    function getProfileUrl(id) {
+        return `https://www.torn.com/profiles.php?XID=${encodeURIComponent(String(id))}`;
     }
 
     function updateTrackCurrentButton() {
@@ -1568,13 +1572,16 @@
         list.innerHTML = "";
 
         trackedTargets.forEach(id => {
-            const state = trackedStates[id] || { status: "UNKNOWN", thresholdStatus: "UNKNOWN", last: "--" };
+            const state = trackedStates[id] || { status: "UNKNOWN", thresholdStatus: "UNKNOWN", last: "--", isHospitalized: null };
             const row = document.createElement("div");
             const isCurrent = String(id) === String(targetId);
             const color = getStatusColor(state.status);
             const displayName = state.name || id;
             const pingCooldownActive = isManualPingCooldownActive();
             const pingCooldownLabel = getManualPingCooldownLabel();
+            const hospitalKnown = typeof state.isHospitalized === "boolean";
+            const hospitalColor = !hospitalKnown ? "#9fb6c6" : (state.isHospitalized ? PINK_COLOR : "#42ff8c");
+            const hospitalTitle = !hospitalKnown ? "Hospital status unknown" : (state.isHospitalized ? "In hospital" : "Not in hospital");
             row.style.cssText = `
                 display:flex;
                 align-items:center;
@@ -1590,7 +1597,8 @@
             row.innerHTML = `
                 <div style="display:flex; align-items:center; gap:6px; min-width:0;">
                     <span style="width:7px; height:7px; border-radius:999px; background:${color}; box-shadow:0 0 8px ${color}66;"></span>
-                    <span style="color:#ffffff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; max-width:320px;">${isCurrent ? "▶" : ""}${displayName}</span>
+                    <span title="${hospitalTitle}" style="display:inline-flex; align-items:center; justify-content:center; width:12px; height:12px; color:${hospitalColor}; border:1px solid ${hospitalColor}55; border-radius:4px; font-size:10px; line-height:10px; background:rgba(255,255,255,0.02);">✚</span>
+                    <a href="${getProfileUrl(id)}" target="_blank" rel="noopener noreferrer" title="Open profile" style="color:#ffffff; text-decoration:none; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; max-width:320px; display:inline-block;">${isCurrent ? "▶" : ""}${displayName}</a>
                 </div>
                 <div style="display:flex; align-items:center; gap:8px; min-width:0;">
                     <span style="color:${color}; font-weight:bold; white-space:nowrap;">${state.status}</span>
@@ -1992,7 +2000,7 @@
             onload: function(response) {
                 const durationMs = Date.now() - startedAt;
                 if (response.status !== 200) {
-                    trackedStates[id] = trackedStates[id] || { status: "UNKNOWN", thresholdStatus: "UNKNOWN", last: "--" };
+                    trackedStates[id] = trackedStates[id] || { status: "UNKNOWN", thresholdStatus: "UNKNOWN", last: "--", isHospitalized: null };
                     trackedStates[id].status = `HTTP ${response.status}`;
                     trackedStates[id].last = "--";
                     if (isPrimary) {
@@ -2011,7 +2019,7 @@
                     }
                     
                     if (data.error) {
-                        trackedStates[id] = trackedStates[id] || { status: "UNKNOWN", thresholdStatus: "UNKNOWN", last: "--" };
+                        trackedStates[id] = trackedStates[id] || { status: "UNKNOWN", thresholdStatus: "UNKNOWN", last: "--", isHospitalized: null };
                         trackedStates[id].status = "API ERROR";
                         trackedStates[id].last = "--";
                         if (isPrimary) {
@@ -2031,7 +2039,7 @@
 
                     if (!lastActionData || !lastActionData.timestamp) {
                         const rootKeys = Object.keys(data);
-                        trackedStates[id] = trackedStates[id] || { status: "UNKNOWN", thresholdStatus: "UNKNOWN", last: "--", name: String(id) };
+                        trackedStates[id] = trackedStates[id] || { status: "UNKNOWN", thresholdStatus: "UNKNOWN", last: "--", name: String(id), isHospitalized: null };
                         trackedStates[id].name = profileName;
                         trackedStates[id].status = "NO ACTIVITY";
                         trackedStates[id].last = "--";
@@ -2048,7 +2056,7 @@
 
                     let lastActionTimestamp = Number(lastActionData.timestamp);
                     if (!Number.isFinite(lastActionTimestamp)) {
-                        trackedStates[id] = trackedStates[id] || { status: "UNKNOWN", thresholdStatus: "UNKNOWN", last: "--", name: String(id) };
+                        trackedStates[id] = trackedStates[id] || { status: "UNKNOWN", thresholdStatus: "UNKNOWN", last: "--", name: String(id), isHospitalized: null };
                         trackedStates[id].name = profileName;
                         trackedStates[id].status = "BAD TS";
                         trackedStates[id].last = "--";
@@ -2077,12 +2085,17 @@
                     const relativeText = apiLastActionStatus === "online"
                         ? "Online now"
                         : (lastActionData.relative || `${secondsSinceActive}s ago`);
-                    trackedStates[id] = trackedStates[id] || { status: "UNKNOWN", thresholdStatus: "UNKNOWN", last: "--", name: String(id) };
+                    trackedStates[id] = trackedStates[id] || { status: "UNKNOWN", thresholdStatus: "UNKNOWN", last: "--", name: String(id), isHospitalized: null };
                     trackedStates[id].name = profileName;
                     const previousThresholdStatus = trackedStates[id].thresholdStatus || "UNKNOWN";
+                    const previousHospitalized = trackedStates[id].isHospitalized;
+                    const apiProfileStatusState = String((data.profile && data.profile.status && data.profile.status.state) || (data.status && data.status.state) || "");
+                    const apiProfileStatusDescription = String((data.profile && data.profile.status && data.profile.status.description) || (data.status && data.status.description) || "");
+                    const isHospitalized = /hospital/i.test(apiProfileStatusState) || /hospital/i.test(apiProfileStatusDescription);
                     trackedStates[id].status = actualPresenceStatus; // row display uses actual Torn presence
                     trackedStates[id].thresholdStatus = newStatus; // notifications use threshold crossing
                     trackedStates[id].last = relativeText;
+                    trackedStates[id].isHospitalized = isHospitalized;
 
                     if (isPrimary) {
                         lastActionRelativeText = relativeText;
@@ -2104,6 +2117,11 @@
                         }
                     }
 
+                    if (previousHospitalized === true && isHospitalized === false) {
+                        addLog(`Target [${id}] is no longer hospitalized.`, "INFO");
+                        notifyIfHidden("Minerva Recovery", `Target [${id}] is no longer in the hospital.`);
+                    }
+
                     if (isPrimary && currentStatus === "INACTIVE" && newStatus === "ACTIVE") {
                         notifyIfHidden("Minerva Tracking Alert", `Target [${id}] has just become ACTIVE!`);
                     }
@@ -2111,7 +2129,7 @@
                     finish();
 
                 } catch (e) {
-                    trackedStates[id] = trackedStates[id] || { status: "UNKNOWN", thresholdStatus: "UNKNOWN", last: "--", name: String(id) };
+                    trackedStates[id] = trackedStates[id] || { status: "UNKNOWN", thresholdStatus: "UNKNOWN", last: "--", name: String(id), isHospitalized: null };
                     trackedStates[id].status = "PARSE ERR";
                     trackedStates[id].last = "--";
                     if (isPrimary) {
@@ -2127,7 +2145,7 @@
             },
             ontimeout: function() {
                 const durationMs = Date.now() - startedAt;
-                trackedStates[id] = trackedStates[id] || { status: "UNKNOWN", thresholdStatus: "UNKNOWN", last: "--", name: String(id) };
+                trackedStates[id] = trackedStates[id] || { status: "UNKNOWN", thresholdStatus: "UNKNOWN", last: "--", name: String(id), isHospitalized: null };
                 trackedStates[id].status = "TIMEOUT";
                 trackedStates[id].last = "--";
                 if (isPrimary) {
@@ -2139,7 +2157,7 @@
             },
             onerror: function(err) {
                 const durationMs = Date.now() - startedAt;
-                trackedStates[id] = trackedStates[id] || { status: "UNKNOWN", thresholdStatus: "UNKNOWN", last: "--", name: String(id) };
+                trackedStates[id] = trackedStates[id] || { status: "UNKNOWN", thresholdStatus: "UNKNOWN", last: "--", name: String(id), isHospitalized: null };
                 trackedStates[id].status = "NET ERR";
                 trackedStates[id].last = "--";
                 if (isPrimary) {
@@ -2210,7 +2228,7 @@
     }
 
     function bootMinerva() {
-        addLog(`Booting Minerva v0.4.11. UA=${navigator.userAgent}`, "DIAGNOSTIC");
+        addLog(`Booting Minerva v0.4.13. UA=${navigator.userAgent}`, "DIAGNOSTIC");
         addLog(`Initial state loaded. tracking=${isTracking}, targetId=${targetId || "-"}, trackedTargets=[${trackedTargets.join(", ")}], threshold=${thresholdSeconds}s, maxTracked=${maxTrackedTargets}`, "DIAGNOSTIC");
         injectSafely();
         injectCornerWidget();
