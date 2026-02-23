@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Minerva
 // @namespace    http://tampermonkey.net/
-// @version      v0.4.16
+// @version      v0.4.17
 // @description  Track Torn player activity with a floating multi-target tracker, alerts, and diagnostics.
 // @author       Beatrix [1956521]
 // @license      Proprietary - All Rights Reserved
@@ -22,7 +22,7 @@
     // No permission is granted to copy, modify, redistribute, or republish this script.
 
     // --- Configuration & State ---
-    const MINERVA_VERSION = "v0.4.16";
+    const MINERVA_VERSION = "v0.4.17";
     const API_KEY_STORAGE_KEY = "torn-api-key";
     const API_KEY_VAULT_STORAGE_KEY = "torn-api-key-vault";
     const API_KEY_CACHE_STORAGE_KEY = "torn-api-key-cache";
@@ -1191,10 +1191,12 @@
         return 0;
     }
 
-    function maybeCheckForMinervaUpdate() {
+    function maybeCheckForMinervaUpdate(options = {}) {
+        const force = !!options.force;
+        const showNoUpdateToast = !!options.showNoUpdateToast;
         if (versionCheckInFlight) return;
         const lastCheckAt = Number(GM_getValue(VERSION_CHECK_LAST_AT_STORAGE_KEY, 0));
-        if (Number.isFinite(lastCheckAt) && (Date.now() - lastCheckAt) < VERSION_CHECK_INTERVAL_MS) return;
+        if (!force && Number.isFinite(lastCheckAt) && (Date.now() - lastCheckAt) < VERSION_CHECK_INTERVAL_MS) return;
 
         versionCheckInFlight = true;
         GM_setValue(VERSION_CHECK_LAST_AT_STORAGE_KEY, Date.now());
@@ -1215,30 +1217,43 @@
                 try {
                     const data = JSON.parse(response.responseText || "{}");
                     const latest = String(data.tag_name || "").trim();
-                    if (!latest) return;
+                    if (!latest) {
+                        if (showNoUpdateToast) showMinervaToast("Minerva Updates", "Version check did not return a valid release tag.", 5000);
+                        return;
+                    }
                     const current = MINERVA_VERSION;
-                    if (compareVersions(latest, current) <= 0) return;
+                    if (compareVersions(latest, current) <= 0) {
+                        addLog(`Version check complete. Current version ${current} is up to date.`, "INFO");
+                        if (showNoUpdateToast) {
+                            showMinervaToast("Minerva Updates", `You are on the latest version (${current}).`, 4500);
+                        }
+                        return;
+                    }
                     const dismissed = String(GM_getValue(VERSION_CHECK_DISMISSED_VERSION_STORAGE_KEY, "") || "").trim();
-                    if (dismissed && dismissed === latest) return;
+                    if (!force && dismissed && dismissed === latest) return;
                     addLog(`New Minerva version available: ${latest} (current ${current}).`, "INFO");
                     showMinervaUpdateToast(latest, String(data.html_url || GITHUB_RELEASES_PAGE_URL));
                 } catch (e) {
                     addLog(`Version check parse failed: ${e.message}`, "DIAGNOSTIC");
+                    if (showNoUpdateToast) showMinervaToast("Minerva Updates", "Version check failed while parsing the response.", 5000);
                 }
             },
             ontimeout: function() {
                 versionCheckInFlight = false;
                 addLog("Version check timed out.", "DIAGNOSTIC");
+                if (showNoUpdateToast) showMinervaToast("Minerva Updates", "Version check timed out.", 4500);
             },
             onerror: function() {
                 versionCheckInFlight = false;
                 addLog("Version check network error.", "DIAGNOSTIC");
+                if (showNoUpdateToast) showMinervaToast("Minerva Updates", "Version check failed (network error).", 4500);
             }
         });
     }
 
     function getStatusColor(status) {
         if (String(status).startsWith("ACTIVE")) return CYAN_COLOR;
+        if (String(status).startsWith("READY")) return CYAN_COLOR;
         if (String(status).startsWith("INACTIVE <")) return "#ffbf66";
         if (status === "PAUSED") return "#ffbf66";
         if (status === "UNKNOWN") return "#9fb6c6";
@@ -1435,6 +1450,7 @@
                 <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
                     <button id="minerva-track-current" style="background: transparent; border: 1px solid rgba(0,242,255,0.25); color: #dffbff; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;">Track Current</button>
                     <button id="minerva-key-reset" style="background: transparent; border: 1px solid #774444; color: #ff9a9a; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;">Reset API Key</button>
+                    <button id="minerva-update-check" style="background: transparent; border: 1px solid rgba(66,255,140,0.2); color: #b9ffd8; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;">Check Updates</button>
                     <button id="minerva-toast-test" style="background: transparent; border: 1px solid rgba(0,242,255,0.2); color: #bfefff; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;">View Toast</button>
                     <button id="minerva-tracked-clear" style="background: transparent; border: 1px solid #555; color: #d0d0d0; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;">Clear Tracked</button>
                     <button id="minerva-log-clear" style="background: transparent; border: 1px solid #555; color: #aaa; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;">Clear</button>
@@ -1534,6 +1550,11 @@
 
         wrapper.querySelector("#minerva-toast-test").addEventListener("click", () => {
             showMinervaToast("Minerva Preview", "Use this to adjust toast placement/visibility on your screen.", 8000);
+        });
+
+        wrapper.querySelector("#minerva-update-check").addEventListener("click", () => {
+            addLog("Manual update check requested.", "INFO");
+            maybeCheckForMinervaUpdate({ force: true, showNoUpdateToast: true });
         });
 
         wrapper.querySelector("#minerva-tracked-clear").addEventListener("click", () => {
@@ -2341,7 +2362,7 @@
                     if (apiLastActionStatus === "online") {
                         actualPresenceStatus = "ACTIVE";
                     } else if (secondsSinceActive <= thresholdSeconds) {
-                        actualPresenceStatus = `INACTIVE <${thresholdLabel}`;
+                        actualPresenceStatus = "READY";
                     } else {
                         actualPresenceStatus = `INACTIVE ${thresholdLabel}+`;
                     }

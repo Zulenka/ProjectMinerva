@@ -2,6 +2,11 @@
 
 This file is the source of truth for Minerva release notes on GitHub.
 
+## v0.4.17
+
+- Changed within-threshold offline row status from `INACTIVE <...` to `READY` (shown in Minerva blue/cyan).
+- Added a manual `Check Updates` button in settings that forces a version check and shows a toast result.
+
 ## v0.4.16
 
 - Improved profile UI injection reliability across more Torn profile layouts (including pages with extra overlays/widgets).
