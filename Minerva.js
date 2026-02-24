@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Minerva
 // @namespace    http://tampermonkey.net/
-// @version      v0.4.32
+// @version      v0.4.34
 // @description  Track Torn player activity with a floating multi-target tracker, alerts, and diagnostics.
 // @author       Beatrix [1956521]
 // @license      Proprietary - All Rights Reserved
@@ -24,8 +24,9 @@
     // No permission is granted to copy, modify, redistribute, or republish this script.
 
     // --- Configuration & State ---
-    const MINERVA_VERSION = "v0.4.32";
+    const MINERVA_VERSION = "v0.4.34";
     const MINERVA_ACTIVE_INSTANCE_SLOT = "__minerva_active_instance_token__";
+    const MINERVA_INTERNAL_TEARDOWN_SLOT = "__minerva_internal_teardown__";
     const API_KEY_STORAGE_KEY = "torn-api-key";
     const API_KEY_VAULT_STORAGE_KEY = "torn-api-key-vault";
     const API_KEY_CACHE_STORAGE_KEY = "torn-api-key-cache";
@@ -88,6 +89,16 @@
     let engineTickInProgress = false;
     let pollCycleInProgress = false;
     let isTornDown = false;
+    let toastDocMouseMoveHandler = null;
+    let toastDocMouseUpHandler = null;
+    let toastWindowResizeHandler = null;
+    let settingsDocClickHandler = null;
+    let settingsWindowResizeHandler = null;
+    let settingsWindowScrollHandler = null;
+    let settingsDocKeydownHandler = null;
+    let cornerDocMouseMoveHandler = null;
+    let cornerDocMouseUpHandler = null;
+    let cornerWindowResizeHandler = null;
     let trackedTargets = GM_getValue(TRACKED_TARGETS_STORAGE_KEY, []);
     let trackedStates = {};
     const minervaInstanceToken = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
@@ -1178,9 +1189,8 @@
         `;
         document.body.appendChild(host);
 
-        if (!window.__minervaToastDragBound) {
-            window.__minervaToastDragBound = true;
-            document.addEventListener("mousemove", (e) => {
+        if (!toastDocMouseMoveHandler || !toastDocMouseUpHandler || !toastWindowResizeHandler) {
+            toastDocMouseMoveHandler = (e) => {
                 if (!isLiveMinervaRuntime()) return;
                 if (!toastDragState) return;
                 const toastHost = document.getElementById("minerva-toast-host");
@@ -1193,8 +1203,8 @@
                 toastHost.style.left = `${newLeft}px`;
                 toastHost.style.right = "auto";
                 toastHost.style.bottom = `${newBottom}px`;
-            });
-            document.addEventListener("mouseup", () => {
+            };
+            toastDocMouseUpHandler = () => {
                 if (!isLiveMinervaRuntime()) return;
                 if (!toastDragState) return;
                 const toastHost = document.getElementById("minerva-toast-host");
@@ -1207,8 +1217,8 @@
                     });
                 }
                 toastDragState = null;
-            });
-            window.addEventListener("resize", () => {
+            };
+            toastWindowResizeHandler = () => {
                 if (!isLiveMinervaRuntime()) return;
                 const toastHost = document.getElementById("minerva-toast-host");
                 if (!toastHost) return;
@@ -1220,7 +1230,10 @@
                 toastHost.style.left = `${left}px`;
                 toastHost.style.right = "auto";
                 toastHost.style.bottom = `${Math.max(8, Math.round(window.innerHeight - (top + toastHost.offsetHeight)))}px`;
-            });
+            };
+            document.addEventListener("mousemove", toastDocMouseMoveHandler);
+            document.addEventListener("mouseup", toastDocMouseUpHandler);
+            window.addEventListener("resize", toastWindowResizeHandler);
         }
 
         return host;
@@ -1843,9 +1856,8 @@
             settings.style.overflow = "auto";
             document.body.appendChild(settings);
 
-            if (!window.__minervaSettingsPopupBound) {
-                window.__minervaSettingsPopupBound = true;
-                document.addEventListener("click", (e) => {
+            if (!settingsDocClickHandler || !settingsWindowResizeHandler || !settingsWindowScrollHandler || !settingsDocKeydownHandler) {
+                settingsDocClickHandler = (e) => {
                     if (!isLiveMinervaRuntime()) return;
                     const popup = document.getElementById("minerva-settings-panel");
                     const gear = document.getElementById("minerva-settings-gear");
@@ -1853,21 +1865,25 @@
                     if (!isSettingsPopupOpen) return;
                     if (popup.contains(e.target) || gear.contains(e.target)) return;
                     setSettingsPopupOpen(false);
-                });
-                window.addEventListener("resize", () => {
+                };
+                settingsWindowResizeHandler = () => {
                     if (!isLiveMinervaRuntime()) return;
                     if (isSettingsPopupOpen) positionSettingsPopup();
-                });
-                window.addEventListener("scroll", () => {
+                };
+                settingsWindowScrollHandler = () => {
                     if (!isLiveMinervaRuntime()) return;
                     if (isSettingsPopupOpen) positionSettingsPopup();
-                }, true);
-                document.addEventListener("keydown", (e) => {
+                };
+                settingsDocKeydownHandler = (e) => {
                     if (!isLiveMinervaRuntime()) return;
                     if (e.key === "Escape" && isSettingsPopupOpen) {
                         setSettingsPopupOpen(false);
                     }
-                });
+                };
+                document.addEventListener("click", settingsDocClickHandler);
+                window.addEventListener("resize", settingsWindowResizeHandler);
+                window.addEventListener("scroll", settingsWindowScrollHandler, true);
+                document.addEventListener("keydown", settingsDocKeydownHandler);
             }
         }
 
@@ -2329,11 +2345,28 @@
             const el = document.getElementById(id);
             if (el) el.remove();
         });
+        if (toastDocMouseMoveHandler) document.removeEventListener("mousemove", toastDocMouseMoveHandler);
+        if (toastDocMouseUpHandler) document.removeEventListener("mouseup", toastDocMouseUpHandler);
+        if (toastWindowResizeHandler) window.removeEventListener("resize", toastWindowResizeHandler);
+        toastDocMouseMoveHandler = null;
+        toastDocMouseUpHandler = null;
+        toastWindowResizeHandler = null;
 
-        delete window.__minervaToastDragBound;
-        delete window.__minervaSettingsPopupBound;
-        delete window.__minervaCornerDragBound;
-        delete window.__minervaCornerResizeBound;
+        if (settingsDocClickHandler) document.removeEventListener("click", settingsDocClickHandler);
+        if (settingsWindowResizeHandler) window.removeEventListener("resize", settingsWindowResizeHandler);
+        if (settingsWindowScrollHandler) window.removeEventListener("scroll", settingsWindowScrollHandler, true);
+        if (settingsDocKeydownHandler) document.removeEventListener("keydown", settingsDocKeydownHandler);
+        settingsDocClickHandler = null;
+        settingsWindowResizeHandler = null;
+        settingsWindowScrollHandler = null;
+        settingsDocKeydownHandler = null;
+
+        if (cornerDocMouseMoveHandler) document.removeEventListener("mousemove", cornerDocMouseMoveHandler);
+        if (cornerDocMouseUpHandler) document.removeEventListener("mouseup", cornerDocMouseUpHandler);
+        if (cornerWindowResizeHandler) window.removeEventListener("resize", cornerWindowResizeHandler);
+        cornerDocMouseMoveHandler = null;
+        cornerDocMouseUpHandler = null;
+        cornerWindowResizeHandler = null;
 
         releaseActiveMinervaInstance();
         if (reason !== "unload") {
@@ -2371,6 +2404,19 @@
         ];
 
         const tryInject = () => {
+            // Preferred placement on some Torn profile layouts: insert above the green "Profile Notes" bar.
+            const profileNotesAnchor = Array.from(document.querySelectorAll("div, h2, h3, span"))
+                .find((el) => el instanceof Element && /profile notes/i.test(String(el.textContent || "").trim()) && el.getBoundingClientRect().width > 120);
+            if (profileNotesAnchor && profileNotesAnchor.parentElement) {
+                const host = profileNotesAnchor.closest('div[class], section, article') || profileNotesAnchor;
+                if (host && host.parentElement && !host.contains(uiElement)) {
+                    host.parentElement.insertBefore(uiElement, host);
+                    disconnectProfileInjectionObserver();
+                    addLog("Minerva UI injected above Profile Notes bar.", "INFO");
+                    return true;
+                }
+            }
+
             for (let selector of possibleTargets) {
                 let target = document.querySelector(selector);
                 if (target && !target.contains(uiElement)) {
@@ -2540,9 +2586,8 @@
             e.preventDefault();
         });
 
-        if (!window.__minervaCornerDragBound) {
-            window.__minervaCornerDragBound = true;
-            document.addEventListener("mousemove", (e) => {
+        if (!cornerDocMouseMoveHandler || !cornerDocMouseUpHandler) {
+            cornerDocMouseMoveHandler = (e) => {
                 if (!isLiveMinervaRuntime()) return;
                 if (!widgetDragState) return;
                 const widgetEl = document.getElementById("minerva-corner-widget");
@@ -2555,8 +2600,8 @@
                 const newBottom = Math.max(8, window.innerHeight - (newTop + widgetEl.offsetHeight));
                 widgetEl.style.left = `${newLeft}px`;
                 widgetEl.style.bottom = `${newBottom}px`;
-            });
-            document.addEventListener("mouseup", () => {
+            };
+            cornerDocMouseUpHandler = () => {
                 if (!isLiveMinervaRuntime()) return;
                 if (!widgetDragState) return;
                 const widgetEl = document.getElementById("minerva-corner-widget");
@@ -2564,7 +2609,9 @@
                     snapCornerWidgetToGrid(widgetEl);
                 }
                 widgetDragState = null;
-            });
+            };
+            document.addEventListener("mousemove", cornerDocMouseMoveHandler);
+            document.addEventListener("mouseup", cornerDocMouseUpHandler);
         }
 
         const hidden = GM_getValue(WIDGET_HIDDEN_STORAGE_KEY, false);
@@ -2578,14 +2625,14 @@
         renderTrackedList();
         ensureToastHost();
 
-        if (!window.__minervaCornerResizeBound) {
-            window.__minervaCornerResizeBound = true;
-            window.addEventListener("resize", () => {
+        if (!cornerWindowResizeHandler) {
+            cornerWindowResizeHandler = () => {
                 if (!isLiveMinervaRuntime()) return;
                 autoSizeCornerWidgetListHeight();
                 autoSizeCornerWidget();
                 clampCornerWidgetIntoViewport();
-            });
+            };
+            window.addEventListener("resize", cornerWindowResizeHandler);
         }
     }
 
@@ -2823,7 +2870,14 @@
         }
         pollCycleInProgress = true;
         const cycleId = ++pollCycleSeq;
-        const ids = trackedTargets.slice(0, maxTrackedTargets);
+        let ids = trackedTargets.slice(0, maxTrackedTargets);
+        if (ids.length === 0) {
+            const recovered = syncTrackedTargetsFromStorage("poll-empty");
+            if (recovered) {
+                ids = trackedTargets.slice(0, maxTrackedTargets);
+                addLog(`Poll cycle #${cycleId} recovered tracked targets from storage before empty-state handling. ids=[${ids.join(", ") || "-"}]`, "DIAGNOSTIC");
+            }
+        }
         const profileTargetId = targetId ? String(targetId) : "";
         const primaryId = (profileTargetId && ids.includes(profileTargetId))
             ? profileTargetId
@@ -2905,6 +2959,12 @@
 
     function bootMinerva() {
         isTornDown = false;
+        const existingTeardown = window[MINERVA_INTERNAL_TEARDOWN_SLOT];
+        if (typeof existingTeardown === "function" && window[MINERVA_ACTIVE_INSTANCE_SLOT] && !isActiveMinervaInstance()) {
+            try {
+                existingTeardown("superseded-by-new-instance");
+            } catch (_) {}
+        }
         claimActiveMinervaInstance();
         addLog(`Booting Minerva ${MINERVA_VERSION}. UA=${navigator.userAgent}`, "DIAGNOSTIC");
         addLog(`Initial state loaded. tracking=${isTracking}, targetId=${targetId || "-"}, trackedTargets=[${trackedTargets.join(", ")}], threshold=${thresholdSeconds}s, maxTracked=${maxTrackedTargets}`, "DIAGNOSTIC");
@@ -2990,6 +3050,6 @@
     window.addEventListener("beforeunload", () => {
         teardownMinerva("unload");
     });
-    window.MinervaTeardown = teardownMinerva;
+    window[MINERVA_INTERNAL_TEARDOWN_SLOT] = teardownMinerva;
 
 })();

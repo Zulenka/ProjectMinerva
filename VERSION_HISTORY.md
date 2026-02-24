@@ -2,6 +2,17 @@
 
 This file is the source of truth for Minerva release notes on GitHub.
 
+## v0.4.34
+
+- Reworked long-lived global UI listeners (toast drag, settings popup, corner widget drag/resize) to use removable handler references, reducing listener buildup during teardown/reload cycles without changing UI behavior.
+- Removed the public `window.MinervaTeardown` export and switched to an internal teardown slot for instance handoff, reducing accidental or external script-triggered Minerva shutdowns.
+- Added a preferred profile-page injection placement above the `Profile Notes` bar on supported Torn layouts.
+
+## v0.4.33
+
+- Added poll-cycle empty-list recovery: Minerva now re-syncs tracked targets from storage before declaring `NO TARGETS`, reducing false empty-state flashes during storage sync races.
+- Added immediate stale-instance teardown on boot when a previous Minerva instance is still attached to the page, reducing duplicate intervals and countdown jitter after reload/update.
+
 ## v0.4.32
 
 - Fixed primary-target selection in poll cycles so Minerva only treats the current profile (`targetId`) as primary when that profile is actually in the tracked list.
