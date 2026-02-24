@@ -12,7 +12,7 @@ It gives you:
 
 ## Current Version
 
-- **v0.4.38**
+- **v0.4.39**
 
 ## What Minerva Is For (Plain Language)
 
@@ -84,6 +84,9 @@ It is built for on-page use in Torn. It is not a remote service and does not sen
 
 ## Recent Changes
 
+### v0.4.39
+- Renamed the main header field label from `STATUS` to `SIGNAL` for clearer tracker wording without changing status behavior/values.
+
 ### v0.4.38
 - Adjusted the `Profile Notes` placement rule to insert Minerva directly before the `Profile Notes` bar container (instead of climbing to a wider parent), for more exact positioning in the gap above that bar.
 
@@ -110,10 +113,6 @@ It is built for on-page use in Torn. It is not a remote service and does not sen
 ### v0.4.32
 - Fixed primary-target selection in poll cycles so Minerva only treats the current profile (`targetId`) as primary when that profile is actually in the tracked list.
 - Prevents the main panel from staying `AWAITING PING`/`UNKNOWN` when viewing an untracked profile while polling a different tracked target.
-
-### v0.4.31
-- Fixed a profile-panel status sync edge case where the main Minerva box could stay on `AWAITING PING` on the current profile while the tracked row already had a known status.
-- `syncTrackingStateFromUi()` now falls back to the tracked row's threshold status for the current profile when `currentStatus` is still `UNKNOWN`.
 
 ## Full Technical Docs / Changelog
 
