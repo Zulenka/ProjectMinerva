@@ -14,7 +14,7 @@ It gives you:
 
 - **v0.4.26**
 
-## What Minerva Is For 
+## What Minerva Is For (Plain Language)
 
 Minerva helps you watch specific players without constantly refreshing profiles manually.
 You choose who to track. Minerva checks activity, keeps a visible list, and alerts you when something changes.
@@ -63,7 +63,7 @@ It is built for on-page use in Torn. It is not a remote service and does not sen
 - Keeps a temporary local unlock cache for convenience
 - Recommended Torn key scope: **User -> Profile** (minimum needed for Minerva's profile activity checks)
 
-## Required/Disclosure Summary 
+## Required/Disclosure Summary (AI/Tool Listing Friendly)
 
 | Category | Minerva Statement |
 | --- | --- |
@@ -77,12 +77,16 @@ It is built for on-page use in Torn. It is not a remote service and does not sen
 
 ## Troubleshooting (Quick)
 
-- **No data / activity unavailable**: confirm your Torn API key and `Public Key` access.
+- **No data / activity unavailable**: confirm your Torn API key and `User -> Profile` access.
 - **No targets**: use `Track Current` on a profile page.
 - **Widget missing on a profile**: open Minerva logs and reload once (Minerva has layout fallback/retry logic).
 - **Update toast not showing**: use the `Check Updates` button in Minerva settings for a manual check.
 
 ## Recent Changes
+
+### v0.4.28
+- Changed Minerva update-action links (toast `Update` button and header `UPDATE AVAILABLE` badge) to open the Greasy Fork script page instead of GitHub Releases.
+- Kept the version check source on GitHub Releases, but routed user-facing updates to the Greasy Fork install/update page.
 
 ### v0.4.27
 - Added an inline `UPDATE AVAILABLE` badge in the main Minerva status header (red styling, shown only when GitHub releases report a newer version than the installed script).
@@ -115,12 +119,6 @@ It is built for on-page use in Torn. It is not a remote service and does not sen
 
 ### v0.4.21
 - Updated Minerva toasts/alerts to display tracked target names (with ID fallback) instead of raw ID-only text.
-
-### v0.4.20
-- Added cross-tab tracked-target syncing so tracked users persist/update across Torn pages and browser tabs without waiting for reloads.
-- Added Minerva control style overrides to prevent Torn site hover animations/effects from causing button flicker.
-- Added GitHub automation to generate `GREASYFORK_ADDITIONAL_INFO.md` from `README.md` and `VERSION_HISTORY.md` on push.
-- Added local generator script (`scripts/build_greasyfork_additional_info.py`) and GitHub Action workflow for synced additional-info content.
 
 ## Full Technical Docs / Changelog
 
