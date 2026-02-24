@@ -2,6 +2,15 @@
 
 This file is the source of truth for Minerva release notes on GitHub.
 
+## v0.4.38
+
+- Adjusted the `Profile Notes` placement rule to insert Minerva directly before the `Profile Notes` bar container (instead of climbing to a wider parent), for more exact positioning in the gap above that bar.
+
+## v0.4.37
+
+- Added `@noframes` to prevent Minerva from running inside subframes/iframes.
+- Added a DOM-level singleton lock (`data-minerva-active-instance`) so only one Minerva instance can own a page at a time, improving duplicate-instance prevention when userscript sandbox contexts differ.
+
 ## v0.4.36
 
 - Tightened profile-page UI placement so Minerva prefers the wide center-column `Profile Notes` bar anchor (instead of matching smaller sidebar notes elements), improving consistent placement in the gap above `Profile Notes` across profiles.

@@ -1,12 +1,13 @@
 // ==UserScript==
 // @name         Minerva
 // @namespace    http://tampermonkey.net/
-// @version      v0.4.36
+// @version      v0.4.38
 // @description  Track Torn player activity with a floating multi-target tracker, alerts, and diagnostics.
 // @author       Beatrix [1956521]
 // @license      Proprietary - All Rights Reserved
 // @supportURL   https://github.com/Zulenka/ProjectMinerva/issues/new/choose
 // @match        https://www.torn.com/*
+// @noframes
 // @connect      api.torn.com
 // @connect      api.github.com
 // @grant        GM_setValue
@@ -24,9 +25,10 @@
     // No permission is granted to copy, modify, redistribute, or republish this script.
 
     // --- Configuration & State ---
-    const MINERVA_VERSION = "v0.4.36";
+    const MINERVA_VERSION = "v0.4.38";
     const MINERVA_ACTIVE_INSTANCE_SLOT = "__minerva_active_instance_token__";
     const MINERVA_INTERNAL_TEARDOWN_SLOT = "__minerva_internal_teardown__";
+    const MINERVA_DOM_LOCK_ATTR = "data-minerva-active-instance";
     const API_KEY_STORAGE_KEY = "torn-api-key";
     const API_KEY_VAULT_STORAGE_KEY = "torn-api-key-vault";
     const API_KEY_CACHE_STORAGE_KEY = "torn-api-key-cache";
@@ -120,10 +122,18 @@
 
     function claimActiveMinervaInstance() {
         window[MINERVA_ACTIVE_INSTANCE_SLOT] = minervaInstanceToken;
+        try {
+            document.documentElement?.setAttribute(MINERVA_DOM_LOCK_ATTR, minervaInstanceToken);
+        } catch (_) {}
     }
 
     function isActiveMinervaInstance() {
-        return window[MINERVA_ACTIVE_INSTANCE_SLOT] === minervaInstanceToken;
+        const windowOwns = window[MINERVA_ACTIVE_INSTANCE_SLOT] === minervaInstanceToken;
+        let domOwns = false;
+        try {
+            domOwns = document.documentElement?.getAttribute(MINERVA_DOM_LOCK_ATTR) === minervaInstanceToken;
+        } catch (_) {}
+        return windowOwns && domOwns;
     }
 
     function isLiveMinervaRuntime() {
@@ -133,6 +143,27 @@
     function releaseActiveMinervaInstance() {
         if (isActiveMinervaInstance()) {
             delete window[MINERVA_ACTIVE_INSTANCE_SLOT];
+            try {
+                const root = document.documentElement;
+                if (root && root.getAttribute(MINERVA_DOM_LOCK_ATTR) === minervaInstanceToken) {
+                    root.removeAttribute(MINERVA_DOM_LOCK_ATTR);
+                }
+            } catch (_) {}
+        }
+    }
+
+    function tryClaimDomInstanceLock() {
+        try {
+            const root = document.documentElement;
+            if (!root) return true;
+            const current = String(root.getAttribute(MINERVA_DOM_LOCK_ATTR) || "");
+            if (!current || current === minervaInstanceToken) {
+                root.setAttribute(MINERVA_DOM_LOCK_ATTR, minervaInstanceToken);
+                return true;
+            }
+            return false;
+        } catch (_) {
+            return true;
         }
     }
 
@@ -2423,17 +2454,11 @@
                 })
                 .sort((a, b) => b.getBoundingClientRect().width - a.getBoundingClientRect().width)[0];
             if (profileNotesAnchor && profileNotesAnchor.parentElement) {
-                let host = profileNotesAnchor.closest('div[class], section, article') || profileNotesAnchor;
-                let cur = host;
-                for (let i = 0; i < 4 && cur && cur.parentElement; i++) {
-                    const rect = cur.getBoundingClientRect();
-                    if (rect.width >= 500 && rect.height >= 24) host = cur;
-                    cur = cur.parentElement;
-                }
-                if (host && host.parentElement && !host.contains(uiElement)) {
-                    host.parentElement.insertBefore(uiElement, host);
+                const notesBarHost = profileNotesAnchor.closest('div[class], section, article') || profileNotesAnchor;
+                if (notesBarHost && notesBarHost.parentElement && !notesBarHost.contains(uiElement)) {
+                    notesBarHost.parentElement.insertBefore(uiElement, notesBarHost);
                     disconnectProfileInjectionObserver();
-                    addLog("Minerva UI injected above Profile Notes bar.", "INFO");
+                    addLog("Minerva UI injected directly above Profile Notes bar.", "INFO");
                     return true;
                 }
             }
@@ -2980,6 +3005,10 @@
 
     function bootMinerva() {
         isTornDown = false;
+        if (!tryClaimDomInstanceLock()) {
+            console.log("[Minerva] Duplicate instance blocked by DOM lock.");
+            return;
+        }
         const existingTeardown = window[MINERVA_INTERNAL_TEARDOWN_SLOT];
         if (typeof existingTeardown === "function" && window[MINERVA_ACTIVE_INSTANCE_SLOT] && !isActiveMinervaInstance()) {
             try {
