@@ -12,7 +12,7 @@ It gives you:
 
 ## Current Version
 
-- **v0.4.39**
+- **v0.4.41**
 
 ## What Minerva Is For (Plain Language)
 
@@ -84,6 +84,14 @@ It is built for on-page use in Torn. It is not a remote service and does not sen
 
 ## Recent Changes
 
+### v0.4.41
+- Removed the heavy duplicate-instance DOM/window lock arbitration path and reverted runtime ownership checks to a simpler local teardown guard, after confirming duplicate starts were caused by running Minerva in both Violentmonkey and Tampermonkey.
+- Kept the startup tracked-target storage re-sync grace window from `v0.4.40` to reduce false `NO TARGETS` flashes during page/script initialization races.
+
+### v0.4.40
+- Added a short startup tracked-target recovery grace window with boot-time storage re-sync retries, reducing false `NO TARGETS` flashes when Tampermonkey storage initializes late.
+- Improved duplicate-instance lock handling to attempt stale-lock reclamation before blocking a new instance, reducing duplicate-start race noise.
+
 ### v0.4.39
 - Renamed the main header field label from `STATUS` to `SIGNAL` for clearer tracker wording without changing status behavior/values.
 
@@ -105,14 +113,6 @@ It is built for on-page use in Torn. It is not a remote service and does not sen
 - Reworked long-lived global UI listeners (toast drag, settings popup, corner widget drag/resize) to use removable handler references, reducing listener buildup during teardown/reload cycles without changing UI behavior.
 - Removed the public `window.MinervaTeardown` export and switched to an internal teardown slot for instance handoff, reducing accidental or external script-triggered Minerva shutdowns.
 - Added a preferred profile-page injection placement above the `Profile Notes` bar on supported Torn layouts.
-
-### v0.4.33
-- Added poll-cycle empty-list recovery: Minerva now re-syncs tracked targets from storage before declaring `NO TARGETS`, reducing false empty-state flashes during storage sync races.
-- Added immediate stale-instance teardown on boot when a previous Minerva instance is still attached to the page, reducing duplicate intervals and countdown jitter after reload/update.
-
-### v0.4.32
-- Fixed primary-target selection in poll cycles so Minerva only treats the current profile (`targetId`) as primary when that profile is actually in the tracked list.
-- Prevents the main panel from staying `AWAITING PING`/`UNKNOWN` when viewing an untracked profile while polling a different tracked target.
 
 ## Full Technical Docs / Changelog
 
