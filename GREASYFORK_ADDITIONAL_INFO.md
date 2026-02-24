@@ -12,7 +12,7 @@ It gives you:
 
 ## Current Version
 
-- **v0.4.34**
+- **v0.4.36**
 
 ## What Minerva Is For (Plain Language)
 
@@ -84,6 +84,13 @@ It is built for on-page use in Torn. It is not a remote service and does not sen
 
 ## Recent Changes
 
+### v0.4.36
+- Tightened profile-page UI placement so Minerva prefers the wide center-column `Profile Notes` bar anchor (instead of matching smaller sidebar notes elements), improving consistent placement in the gap above `Profile Notes` across profiles.
+
+### v0.4.35
+- Fixed another main-panel status desync where it could remain on `NO TARGETS` on an untracked profile even while the corner widget showed tracked targets and a live status.
+- Main panel status recovery now falls back to the first tracked target's status when the current profile is not tracked.
+
 ### v0.4.34
 - Reworked long-lived global UI listeners (toast drag, settings popup, corner widget drag/resize) to use removable handler references, reducing listener buildup during teardown/reload cycles without changing UI behavior.
 - Removed the public `window.MinervaTeardown` export and switched to an internal teardown slot for instance handoff, reducing accidental or external script-triggered Minerva shutdowns.
@@ -109,16 +116,6 @@ It is built for on-page use in Torn. It is not a remote service and does not sen
 ### v0.4.29
 - Fixed main profile panel status desync where it could remain on `AWAITING PING` after UI reinjection while the corner tracker already had a known live status.
 - `syncTrackingStateFromUi()` now restores the known status when the UI shows `PAUSED` or `AWAITING PING` incorrectly.
-
-### v0.4.28
-- Changed Minerva update-action links (toast `Update` button and header `UPDATE AVAILABLE` badge) to open the Greasy Fork script page instead of GitHub Releases.
-- Kept the version check source on GitHub Releases, but routed user-facing updates to the Greasy Fork install/update page.
-
-### v0.4.27
-- Added an inline `UPDATE AVAILABLE` badge in the main Minerva status header (red styling, shown only when GitHub releases report a newer version than the installed script).
-- Clicking the update badge opens the latest release page; the badge clears automatically after updating to the latest version.
-- Added explicit runtime teardown (`teardownMinerva`) to clear Minerva UI, interval, observer, and runtime state on page unload and stale-instance takeover.
-- Reduced lingering/stale UI risk when duplicate instances occur on the same page by tearing down the inactive instance instead of only stopping its timer.
 
 ## Full Technical Docs / Changelog
 
