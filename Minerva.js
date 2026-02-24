@@ -23,7 +23,7 @@
     // No permission is granted to copy, modify, redistribute, or republish this script.
 
     // --- Configuration & State ---
-    const MINERVA_VERSION = "v0.4.27";
+    const MINERVA_VERSION = "v0.4.28";
     const MINERVA_ACTIVE_INSTANCE_SLOT = "__minerva_active_instance_token__";
     const API_KEY_STORAGE_KEY = "torn-api-key";
     const API_KEY_VAULT_STORAGE_KEY = "torn-api-key-vault";
@@ -50,6 +50,7 @@
     const VERSION_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
     const GITHUB_LATEST_RELEASE_API_URL = "https://api.github.com/repos/Zulenka/ProjectMinerva/releases/latest";
     const GITHUB_RELEASES_PAGE_URL = "https://github.com/Zulenka/ProjectMinerva/releases";
+    const GREASYFORK_SCRIPT_PAGE_URL = "https://greasyfork.org/en/scripts/567217-";
     
     let apiKey = null;
     let targetId = new URLSearchParams(window.location.search).get("XID");
@@ -1282,7 +1283,7 @@
 
     function showMinervaUpdateToast(latestVersion, releaseUrl) {
         latestAvailableVersion = String(latestVersion || "").trim();
-        latestAvailableReleaseUrl = String(releaseUrl || GITHUB_RELEASES_PAGE_URL);
+        latestAvailableReleaseUrl = GREASYFORK_SCRIPT_PAGE_URL;
         updateAvailableUiBadge();
         const host = ensureToastHost();
         if (!host) return;
@@ -1336,7 +1337,7 @@
         });
         toast.querySelector('[data-minerva-update-open="1"]')?.addEventListener("click", (e) => {
             e.stopPropagation();
-            window.open(releaseUrl || GITHUB_RELEASES_PAGE_URL, "_blank", "noopener,noreferrer");
+            window.open(GREASYFORK_SCRIPT_PAGE_URL, "_blank", "noopener,noreferrer");
             removeToast();
         });
         toast.querySelector('[data-minerva-toast-drag-handle="1"]')?.addEventListener("mousedown", (e) => {
@@ -1422,11 +1423,11 @@
                     }
                     const dismissed = String(GM_getValue(VERSION_CHECK_DISMISSED_VERSION_STORAGE_KEY, "") || "").trim();
                     latestAvailableVersion = latest;
-                    latestAvailableReleaseUrl = String(data.html_url || GITHUB_RELEASES_PAGE_URL);
+                    latestAvailableReleaseUrl = GREASYFORK_SCRIPT_PAGE_URL;
                     updateAvailableUiBadge();
                     if (!force && dismissed && dismissed === latest) return;
                     addLog(`New Minerva version available: ${latest} (current ${current}).`, "INFO");
-                    showMinervaUpdateToast(latest, String(data.html_url || GITHUB_RELEASES_PAGE_URL));
+                    showMinervaUpdateToast(latest, GREASYFORK_SCRIPT_PAGE_URL);
                 } catch (e) {
                     updateAvailableUiBadge();
                     addLog(`Version check parse failed: ${e.message}`, "DIAGNOSTIC");

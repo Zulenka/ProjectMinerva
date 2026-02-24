@@ -2,6 +2,11 @@
 
 This file is the source of truth for Minerva release notes on GitHub.
 
+## v0.4.28
+
+- Changed Minerva update-action links (toast `Update` button and header `UPDATE AVAILABLE` badge) to open the Greasy Fork script page instead of GitHub Releases.
+- Kept the version check source on GitHub Releases, but routed user-facing updates to the Greasy Fork install/update page.
+
 ## v0.4.27
 
 - Added an inline `UPDATE AVAILABLE` badge in the main Minerva status header (red styling, shown only when GitHub releases report a newer version than the installed script).
