@@ -14,7 +14,7 @@ It gives you:
 
 - **v0.4.26**
 
-## What Minerva Is For (Plain Language)
+## What Minerva Is For 
 
 Minerva helps you watch specific players without constantly refreshing profiles manually.
 You choose who to track. Minerva checks activity, keeps a visible list, and alerts you when something changes.
@@ -63,7 +63,7 @@ It is built for on-page use in Torn. It is not a remote service and does not sen
 - Keeps a temporary local unlock cache for convenience
 - Recommended Torn key scope: **User -> Profile** (minimum needed for Minerva's profile activity checks)
 
-## Required/Disclosure Summary (AI/Tool Listing Friendly)
+## Required/Disclosure Summary 
 
 | Category | Minerva Statement |
 | --- | --- |
@@ -77,7 +77,7 @@ It is built for on-page use in Torn. It is not a remote service and does not sen
 
 ## Troubleshooting (Quick)
 
-- **No data / activity unavailable**: confirm your Torn API key and `User -> Profile` access.
+- **No data / activity unavailable**: confirm your Torn API key and `Public Key` access.
 - **No targets**: use `Track Current` on a profile page.
 - **Widget missing on a profile**: open Minerva logs and reload once (Minerva has layout fallback/retry logic).
 - **Update toast not showing**: use the `Check Updates` button in Minerva settings for a manual check.
