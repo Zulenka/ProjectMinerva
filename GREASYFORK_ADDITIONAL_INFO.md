@@ -12,7 +12,7 @@ It gives you:
 
 ## Current Version
 
-- **v0.4.26**
+- **v0.4.28**
 
 ## What Minerva Is For (Plain Language)
 

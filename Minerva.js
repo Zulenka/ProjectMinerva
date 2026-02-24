@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Minerva
 // @namespace    http://tampermonkey.net/
-// @version      v0.4.26
+// @version      v0.4.28
 // @description  Track Torn player activity with a floating multi-target tracker, alerts, and diagnostics.
 // @author       Beatrix [1956521]
 // @license      Proprietary - All Rights Reserved
@@ -1601,10 +1601,12 @@
             user-select: none;
         `;
         header.innerHTML = `
-            <div style="font-weight: bold; font-size: 15px; letter-spacing: 1px;">
-                <span style="color: #ffffff;">[ MINERVA ] STATUS: </span>
-                <span id="minerva-status-text" style="color: ${isTracking ? CYAN_COLOR : PINK_COLOR}; text-shadow: 0 0 8px ${isTracking ? CYAN_COLOR : PINK_COLOR};">AWAITING PING</span>
-                <button id="minerva-update-available-badge" type="button" title="" style="display:none; margin-left:8px; background:transparent; color:${PINK_COLOR}; border:none; padding:0; font-weight:bold; font-size:13px; letter-spacing:0.5px; text-shadow:0 0 7px ${PINK_COLOR}; cursor:pointer;">UPDATE AVAILABLE</button>
+            <div style="font-weight: bold; font-size: 15px; letter-spacing: 1px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; min-width:0;">
+                <span style="display:inline-flex; align-items:center; min-width:0;">
+                    <span style="color: #ffffff;">[ MINERVA ] STATUS: </span>
+                    <span id="minerva-status-text" style="color: ${isTracking ? CYAN_COLOR : PINK_COLOR}; text-shadow: 0 0 8px ${isTracking ? CYAN_COLOR : PINK_COLOR};">AWAITING PING</span>
+                </span>
+                <span id="minerva-update-available-badge" role="button" tabindex="0" title="" style="display:none; color:${PINK_COLOR}; font-weight:bold; font-size:13px; letter-spacing:0.5px; text-shadow:0 0 7px ${PINK_COLOR}; cursor:pointer; white-space:nowrap; user-select:none;">UPDATE AVAILABLE</span>
             </div>
             <div style="font-size: 13px; opacity: 0.9;">
                 Next Ping: <span id="minerva-countdown" style="font-weight: bold;">--</span>s <span style="margin-left:8px; font-size:10px;">▼</span>
@@ -1672,10 +1674,18 @@
             settings.style.display = isUiOpen ? "block" : "none";
         });
 
-        wrapper.querySelector("#minerva-update-available-badge")?.addEventListener("click", (e) => {
-            e.stopPropagation();
+        const updateBadgeEl = wrapper.querySelector("#minerva-update-available-badge");
+        const openUpdateFromBadge = (e) => {
+            if (e) e.stopPropagation();
             if (!latestAvailableVersion) return;
             window.open(latestAvailableReleaseUrl || GITHUB_RELEASES_PAGE_URL, "_blank", "noopener,noreferrer");
+        };
+        updateBadgeEl?.addEventListener("click", openUpdateFromBadge);
+        updateBadgeEl?.addEventListener("keydown", (e) => {
+            if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                openUpdateFromBadge(e);
+            }
         });
 
         wrapper.querySelector("#minerva-time-select").addEventListener("change", (e) => {
