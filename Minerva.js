@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Minerva
 // @namespace    http://tampermonkey.net/
-// @version      v0.4.38
+// @version      v0.4.39
 // @description  Track Torn player activity with a floating multi-target tracker, alerts, and diagnostics.
 // @author       Beatrix [1956521]
 // @license      Proprietary - All Rights Reserved
@@ -25,7 +25,7 @@
     // No permission is granted to copy, modify, redistribute, or republish this script.
 
     // --- Configuration & State ---
-    const MINERVA_VERSION = "v0.4.38";
+    const MINERVA_VERSION = "v0.4.39";
     const MINERVA_ACTIVE_INSTANCE_SLOT = "__minerva_active_instance_token__";
     const MINERVA_INTERNAL_TEARDOWN_SLOT = "__minerva_internal_teardown__";
     const MINERVA_DOM_LOCK_ATTR = "data-minerva-active-instance";
@@ -1655,7 +1655,7 @@
         header.innerHTML = `
             <div style="font-weight: bold; font-size: 15px; letter-spacing: 1px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; min-width:0;">
                 <span style="display:inline-flex; align-items:center; min-width:0;">
-                    <span style="color: #ffffff;">[ MINERVA ] STATUS: </span>
+                <span style="color: #ffffff;">[ MINERVA ] SIGNAL: </span>
                     <span id="minerva-status-text" style="color: ${isTracking ? CYAN_COLOR : PINK_COLOR}; text-shadow: 0 0 8px ${isTracking ? CYAN_COLOR : PINK_COLOR};">AWAITING PING</span>
                 </span>
                 <span id="minerva-update-available-badge" role="button" tabindex="0" title="" style="display:none; color:${PINK_COLOR}; font-weight:bold; font-size:13px; letter-spacing:0.5px; text-shadow:0 0 7px ${PINK_COLOR}; cursor:pointer; white-space:nowrap; user-select:none;">UPDATE AVAILABLE</span>

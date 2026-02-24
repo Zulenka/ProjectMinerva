@@ -2,6 +2,10 @@
 
 This file is the source of truth for Minerva release notes on GitHub.
 
+## v0.4.39
+
+- Renamed the main header field label from `STATUS` to `SIGNAL` for clearer tracker wording without changing status behavior/values.
+
 ## v0.4.38
 
 - Adjusted the `Profile Notes` placement rule to insert Minerva directly before the `Profile Notes` bar container (instead of climbing to a wider parent), for more exact positioning in the gap above that bar.
