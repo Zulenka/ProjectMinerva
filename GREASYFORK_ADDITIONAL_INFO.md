@@ -12,7 +12,7 @@ It gives you:
 
 ## Current Version
 
-- **v0.4.27**
+- **v0.4.26**
 
 ## What Minerva Is For (Plain Language)
 
@@ -61,7 +61,7 @@ It is built for on-page use in Torn. It is not a remote service and does not sen
 
 - Supports local encrypted storage (passphrase-protected vault)
 - Keeps a temporary local unlock cache for convenience
-- Recommended Torn key scope: **Public Key** (minimum needed for Minerva's profile activity checks)
+- Recommended Torn key scope: **User -> Profile** (minimum needed for Minerva's profile activity checks)
 
 ## Required/Disclosure Summary (AI/Tool Listing Friendly)
 
@@ -81,14 +81,14 @@ It is built for on-page use in Torn. It is not a remote service and does not sen
 - **No targets**: use `Track Current` on a profile page.
 - **Widget missing on a profile**: open Minerva logs and reload once (Minerva has layout fallback/retry logic).
 - **Update toast not showing**: use the `Check Updates` button in Minerva settings for a manual check.
-- **Disabled/removed script but UI is still visible**: refresh the page. Minerva now tears itself down on page unload, but a live userscript cannot reliably detect a mid-page disable/remove event from Tampermonkey.
 
 ## Recent Changes
 
 ### v0.4.27
-- Added a red inline `UPDATE AVAILABLE` badge in the main Minerva status header (shown only when a newer GitHub release exists).
-- Clicking the update badge opens the latest release page, and the badge disappears after you update to the latest version.
-- Added explicit runtime teardown cleanup for Minerva UI/intervals/observers on page unload and stale-instance takeover to reduce lingering UI and memory use.
+- Added an inline `UPDATE AVAILABLE` badge in the main Minerva status header (red styling, shown only when GitHub releases report a newer version than the installed script).
+- Clicking the update badge opens the latest release page; the badge clears automatically after updating to the latest version.
+- Added explicit runtime teardown (`teardownMinerva`) to clear Minerva UI, interval, observer, and runtime state on page unload and stale-instance takeover.
+- Reduced lingering/stale UI risk when duplicate instances occur on the same page by tearing down the inactive instance instead of only stopping its timer.
 
 ### v0.4.26
 - Added runtime singleton guards to prevent duplicate Minerva instances on the same page from fighting over UI/status updates.
@@ -121,11 +121,6 @@ It is built for on-page use in Torn. It is not a remote service and does not sen
 - Added Minerva control style overrides to prevent Torn site hover animations/effects from causing button flicker.
 - Added GitHub automation to generate `GREASYFORK_ADDITIONAL_INFO.md` from `README.md` and `VERSION_HISTORY.md` on push.
 - Added local generator script (`scripts/build_greasyfork_additional_info.py`) and GitHub Action workflow for synced additional-info content.
-
-### v0.4.19
-- Hardened tracked-row rendering by escaping dynamic text values before inserting HTML.
-- Fixed profile injection retry observer buildup risk by tracking and disconnecting stale `MutationObserver` instances.
-- Improved injection retry cleanup so failed attempts do not leave long-lived body observers running.
 
 ## Full Technical Docs / Changelog
 
