@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Minerva
 // @namespace    http://tampermonkey.net/
-// @version      v0.4.31
+// @version      v0.4.32
 // @description  Track Torn player activity with a floating multi-target tracker, alerts, and diagnostics.
 // @author       Beatrix [1956521]
 // @license      Proprietary - All Rights Reserved
@@ -24,7 +24,7 @@
     // No permission is granted to copy, modify, redistribute, or republish this script.
 
     // --- Configuration & State ---
-    const MINERVA_VERSION = "v0.4.31";
+    const MINERVA_VERSION = "v0.4.32";
     const MINERVA_ACTIVE_INSTANCE_SLOT = "__minerva_active_instance_token__";
     const API_KEY_STORAGE_KEY = "torn-api-key";
     const API_KEY_VAULT_STORAGE_KEY = "torn-api-key-vault";
@@ -795,7 +795,7 @@
                     <div style="margin-top:6px; font-size:11px; color:#8ea2b1; line-height:1.35;">
                         Recommended custom key access: <span style="color:#dffbff;">User -> Profile</span>
                     </div>
-                    <input id="minerva-api-key-input" type="password" name="minerva_api_key_secret" autocomplete="new-password" autocapitalize="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" placeholder="Paste API key..." style="margin-top:10px; width:100%; box-sizing:border-box; background:#0a0f14; color:#e8f6ff; border:1px solid rgba(255,255,255,0.14); border-radius:8px; padding:8px 10px; outline:none;" />
+                    <input id="minerva-api-key-input" type="password" name="minerva_api_key_secret" autocomplete="new-password" autocapitalize="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" placeholder="Enter your Public API Key..." style="margin-top:10px; width:100%; box-sizing:border-box; background:#0a0f14; color:#e8f6ff; border:1px solid rgba(255,255,255,0.14); border-radius:8px; padding:8px 10px; outline:none;" />
                     <div style="margin-top:10px; display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;">
                         <button id="minerva-api-key-generate" style="background:transparent; color:#bfefff; border:1px solid rgba(0,242,255,0.18); border-radius:8px; padding:6px 10px; cursor:pointer;">Open API Page</button>
                         <div style="display:flex; justify-content:flex-end; gap:8px;">
@@ -2824,7 +2824,11 @@
         pollCycleInProgress = true;
         const cycleId = ++pollCycleSeq;
         const ids = trackedTargets.slice(0, maxTrackedTargets);
-        addLog(`Poll cycle #${cycleId} start. ids=[${ids.join(", ") || "-"}], primary=${targetId ? String(targetId) : (ids[0] || "-")}, countdown=${countdownTimer}`, "DEBUG");
+        const profileTargetId = targetId ? String(targetId) : "";
+        const primaryId = (profileTargetId && ids.includes(profileTargetId))
+            ? profileTargetId
+            : String(ids[0] || "");
+        addLog(`Poll cycle #${cycleId} start. ids=[${ids.join(", ") || "-"}], primary=${primaryId || "-"}, countdown=${countdownTimer}`, "DEBUG");
         if (ids.length === 0) {
             pollCycleInProgress = false;
             if (isTracking) {
@@ -2850,7 +2854,6 @@
                 return;
             }
             const id = ids[index++];
-            const primaryId = targetId ? String(targetId) : String(ids[0]);
             checkProfileActivityForId(id, String(id) === primaryId, () => {
                 if (index < ids.length) {
                     setTimeout(next, 300);

@@ -2,6 +2,11 @@
 
 This file is the source of truth for Minerva release notes on GitHub.
 
+## v0.4.32
+
+- Fixed primary-target selection in poll cycles so Minerva only treats the current profile (`targetId`) as primary when that profile is actually in the tracked list.
+- Prevents the main panel from staying `AWAITING PING`/`UNKNOWN` when viewing an untracked profile while polling a different tracked target.
+
 ## v0.4.31
 
 - Fixed a profile-panel status sync edge case where the main Minerva box could stay on `AWAITING PING` on the current profile while the tracked row already had a known status.
