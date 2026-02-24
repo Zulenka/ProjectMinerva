@@ -2,6 +2,11 @@
 
 This file is the source of truth for Minerva release notes on GitHub.
 
+## v0.4.31
+
+- Fixed a profile-panel status sync edge case where the main Minerva box could stay on `AWAITING PING` on the current profile while the tracked row already had a known status.
+- `syncTrackingStateFromUi()` now falls back to the tracked row's threshold status for the current profile when `currentStatus` is still `UNKNOWN`.
+
 ## v0.4.30
 
 - Added missing `GM_removeValueChangeListener` grant so Minerva teardown can unregister the tracked-target cross-tab sync listener correctly.

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Minerva
 // @namespace    http://tampermonkey.net/
-// @version      v0.4.30
+// @version      v0.4.31
 // @description  Track Torn player activity with a floating multi-target tracker, alerts, and diagnostics.
 // @author       Beatrix [1956521]
 // @license      Proprietary - All Rights Reserved
@@ -24,7 +24,7 @@
     // No permission is granted to copy, modify, redistribute, or republish this script.
 
     // --- Configuration & State ---
-    const MINERVA_VERSION = "v0.4.30";
+    const MINERVA_VERSION = "v0.4.31";
     const MINERVA_ACTIVE_INSTANCE_SLOT = "__minerva_active_instance_token__";
     const API_KEY_STORAGE_KEY = "torn-api-key";
     const API_KEY_VAULT_STORAGE_KEY = "torn-api-key-vault";
@@ -2101,11 +2101,20 @@
         if (!isTracking || !statusText) return;
 
         const uiStatus = String(statusText.innerText || "").trim();
-        const hasKnownStatus = !!(currentStatus && currentStatus !== "UNKNOWN");
+        let resolvedStatus = currentStatus;
+        if (!resolvedStatus || resolvedStatus === "UNKNOWN") {
+            const currentTargetState = targetId ? trackedStates[String(targetId)] : null;
+            const fallbackStatus = currentTargetState && currentTargetState.thresholdStatus;
+            if (fallbackStatus && fallbackStatus !== "UNKNOWN") {
+                resolvedStatus = fallbackStatus;
+                currentStatus = fallbackStatus;
+            }
+        }
+        const hasKnownStatus = !!(resolvedStatus && resolvedStatus !== "UNKNOWN");
         if (!hasKnownStatus) return;
 
         if (uiStatus === "PAUSED" || uiStatus === "AWAITING PING") {
-            updateVisuals(currentStatus === "ACTIVE" ? CYAN_COLOR : PINK_COLOR, currentStatus);
+            updateVisuals(resolvedStatus === "ACTIVE" ? CYAN_COLOR : PINK_COLOR, resolvedStatus);
         }
     }
 
