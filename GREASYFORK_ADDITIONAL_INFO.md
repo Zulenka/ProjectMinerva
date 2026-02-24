@@ -12,7 +12,7 @@ It gives you:
 
 ## Current Version
 
-- **v0.4.32**
+- **v0.4.34**
 
 ## What Minerva Is For (Plain Language)
 
@@ -84,6 +84,15 @@ It is built for on-page use in Torn. It is not a remote service and does not sen
 
 ## Recent Changes
 
+### v0.4.34
+- Reworked long-lived global UI listeners (toast drag, settings popup, corner widget drag/resize) to use removable handler references, reducing listener buildup during teardown/reload cycles without changing UI behavior.
+- Removed the public `window.MinervaTeardown` export and switched to an internal teardown slot for instance handoff, reducing accidental or external script-triggered Minerva shutdowns.
+- Added a preferred profile-page injection placement above the `Profile Notes` bar on supported Torn layouts.
+
+### v0.4.33
+- Added poll-cycle empty-list recovery: Minerva now re-syncs tracked targets from storage before declaring `NO TARGETS`, reducing false empty-state flashes during storage sync races.
+- Added immediate stale-instance teardown on boot when a previous Minerva instance is still attached to the page, reducing duplicate intervals and countdown jitter after reload/update.
+
 ### v0.4.32
 - Fixed primary-target selection in poll cycles so Minerva only treats the current profile (`targetId`) as primary when that profile is actually in the tracked list.
 - Prevents the main panel from staying `AWAITING PING`/`UNKNOWN` when viewing an untracked profile while polling a different tracked target.
@@ -110,15 +119,6 @@ It is built for on-page use in Torn. It is not a remote service and does not sen
 - Clicking the update badge opens the latest release page; the badge clears automatically after updating to the latest version.
 - Added explicit runtime teardown (`teardownMinerva`) to clear Minerva UI, interval, observer, and runtime state on page unload and stale-instance takeover.
 - Reduced lingering/stale UI risk when duplicate instances occur on the same page by tearing down the inactive instance instead of only stopping its timer.
-
-### v0.4.26
-- Added runtime singleton guards to prevent duplicate Minerva instances on the same page from fighting over UI/status updates.
-- Added engine tick and poll-cycle reentrancy guards to prevent overlapping countdown/poll updates.
-- Ignored stale async API callbacks from inactive Minerva instances to reduce `PAUSED`/countdown desync behavior.
-
-### v0.4.25
-- Refactor/cleanup pass: replaced repeated tracked-state initialization boilerplate with a shared helper (`ensureTrackedState`) to simplify the polling/error paths.
-- Minor naming/comment cleanup for readability (no intended feature changes).
 
 ## Full Technical Docs / Changelog
 
