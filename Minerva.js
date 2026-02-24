@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Minerva
 // @namespace    http://tampermonkey.net/
-// @version      v0.4.39
+// @version      v0.4.41
 // @description  Track Torn player activity with a floating multi-target tracker, alerts, and diagnostics.
 // @author       Beatrix [1956521]
 // @license      Proprietary - All Rights Reserved
@@ -25,10 +25,8 @@
     // No permission is granted to copy, modify, redistribute, or republish this script.
 
     // --- Configuration & State ---
-    const MINERVA_VERSION = "v0.4.39";
-    const MINERVA_ACTIVE_INSTANCE_SLOT = "__minerva_active_instance_token__";
+    const MINERVA_VERSION = "v0.4.41";
     const MINERVA_INTERNAL_TEARDOWN_SLOT = "__minerva_internal_teardown__";
-    const MINERVA_DOM_LOCK_ATTR = "data-minerva-active-instance";
     const API_KEY_STORAGE_KEY = "torn-api-key";
     const API_KEY_VAULT_STORAGE_KEY = "torn-api-key-vault";
     const API_KEY_CACHE_STORAGE_KEY = "torn-api-key-cache";
@@ -91,6 +89,8 @@
     let engineTickInProgress = false;
     let pollCycleInProgress = false;
     let isTornDown = false;
+    let trackedTargetsStartupGraceUntil = Date.now() + 4000;
+    let startupNoTargetsDeferredLogged = false;
     let toastDocMouseMoveHandler = null;
     let toastDocMouseUpHandler = null;
     let toastWindowResizeHandler = null;
@@ -103,8 +103,6 @@
     let cornerWindowResizeHandler = null;
     let trackedTargets = GM_getValue(TRACKED_TARGETS_STORAGE_KEY, []);
     let trackedStates = {};
-    const minervaInstanceToken = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-
     GM_setValue("minerva-tracking-active", true);
 
     if (!Array.isArray(trackedTargets)) trackedTargets = [];
@@ -121,19 +119,11 @@
     }
 
     function claimActiveMinervaInstance() {
-        window[MINERVA_ACTIVE_INSTANCE_SLOT] = minervaInstanceToken;
-        try {
-            document.documentElement?.setAttribute(MINERVA_DOM_LOCK_ATTR, minervaInstanceToken);
-        } catch (_) {}
+        return;
     }
 
     function isActiveMinervaInstance() {
-        const windowOwns = window[MINERVA_ACTIVE_INSTANCE_SLOT] === minervaInstanceToken;
-        let domOwns = false;
-        try {
-            domOwns = document.documentElement?.getAttribute(MINERVA_DOM_LOCK_ATTR) === minervaInstanceToken;
-        } catch (_) {}
-        return windowOwns && domOwns;
+        return !isTornDown;
     }
 
     function isLiveMinervaRuntime() {
@@ -141,30 +131,11 @@
     }
 
     function releaseActiveMinervaInstance() {
-        if (isActiveMinervaInstance()) {
-            delete window[MINERVA_ACTIVE_INSTANCE_SLOT];
-            try {
-                const root = document.documentElement;
-                if (root && root.getAttribute(MINERVA_DOM_LOCK_ATTR) === minervaInstanceToken) {
-                    root.removeAttribute(MINERVA_DOM_LOCK_ATTR);
-                }
-            } catch (_) {}
-        }
+        return;
     }
 
     function tryClaimDomInstanceLock() {
-        try {
-            const root = document.documentElement;
-            if (!root) return true;
-            const current = String(root.getAttribute(MINERVA_DOM_LOCK_ATTR) || "");
-            if (!current || current === minervaInstanceToken) {
-                root.setAttribute(MINERVA_DOM_LOCK_ATTR, minervaInstanceToken);
-                return true;
-            }
-            return false;
-        } catch (_) {
-            return true;
-        }
+        return true;
     }
 
     function ensureTrackedState(id, nameHint = null) {
@@ -2931,6 +2902,13 @@
         addLog(`Poll cycle #${cycleId} start. ids=[${ids.join(", ") || "-"}], primary=${primaryId || "-"}, countdown=${countdownTimer}`, "DEBUG");
         if (ids.length === 0) {
             pollCycleInProgress = false;
+            if (Date.now() < trackedTargetsStartupGraceUntil) {
+                if (!startupNoTargetsDeferredLogged) {
+                    startupNoTargetsDeferredLogged = true;
+                    addLog("Startup target list is empty; delaying NO TARGETS while storage sync settles.", "DIAGNOSTIC");
+                }
+                return;
+            }
             if (isTracking) {
                 updateVisuals(PINK_COLOR, "NO TARGETS");
                 if (!hasWarnedNoTargets) {
@@ -2968,10 +2946,6 @@
 
     // --- Main Clock ---
     function runEngine() {
-        if (!isActiveMinervaInstance()) {
-            teardownMinerva("stale-instance");
-            return;
-        }
         if (isTornDown) return;
         if (engineTickInProgress) return;
         engineTickInProgress = true;
@@ -3005,20 +2979,23 @@
 
     function bootMinerva() {
         isTornDown = false;
-        if (!tryClaimDomInstanceLock()) {
-            console.log("[Minerva] Duplicate instance blocked by DOM lock.");
-            return;
-        }
-        const existingTeardown = window[MINERVA_INTERNAL_TEARDOWN_SLOT];
-        if (typeof existingTeardown === "function" && window[MINERVA_ACTIVE_INSTANCE_SLOT] && !isActiveMinervaInstance()) {
-            try {
-                existingTeardown("superseded-by-new-instance");
-            } catch (_) {}
-        }
         claimActiveMinervaInstance();
+        trackedTargetsStartupGraceUntil = Date.now() + 4000;
+        startupNoTargetsDeferredLogged = false;
         addLog(`Booting Minerva ${MINERVA_VERSION}. UA=${navigator.userAgent}`, "DIAGNOSTIC");
         addLog(`Initial state loaded. tracking=${isTracking}, targetId=${targetId || "-"}, trackedTargets=[${trackedTargets.join(", ")}], threshold=${thresholdSeconds}s, maxTracked=${maxTrackedTargets}`, "DIAGNOSTIC");
         bindTrackedTargetsStorageSync();
+        syncTrackedTargetsFromStorage("boot");
+        if (trackedTargets.length === 0) {
+            setTimeout(() => {
+                if (!isLiveMinervaRuntime()) return;
+                syncTrackedTargetsFromStorage("boot-retry-250ms");
+            }, 250);
+            setTimeout(() => {
+                if (!isLiveMinervaRuntime()) return;
+                syncTrackedTargetsFromStorage("boot-retry-1000ms");
+            }, 1000);
+        }
         injectSafely();
         injectCornerWidget();
         if (engineIntervalId) {

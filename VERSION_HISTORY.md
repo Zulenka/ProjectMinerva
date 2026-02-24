@@ -2,6 +2,16 @@
 
 This file is the source of truth for Minerva release notes on GitHub.
 
+## v0.4.41
+
+- Removed the heavy duplicate-instance DOM/window lock arbitration path and reverted runtime ownership checks to a simpler local teardown guard, after confirming duplicate starts were caused by running Minerva in both Violentmonkey and Tampermonkey.
+- Kept the startup tracked-target storage re-sync grace window from `v0.4.40` to reduce false `NO TARGETS` flashes during page/script initialization races.
+
+## v0.4.40
+
+- Added a short startup tracked-target recovery grace window with boot-time storage re-sync retries, reducing false `NO TARGETS` flashes when Tampermonkey storage initializes late.
+- Improved duplicate-instance lock handling to attempt stale-lock reclamation before blocking a new instance, reducing duplicate-start race noise.
+
 ## v0.4.39
 
 - Renamed the main header field label from `STATUS` to `SIGNAL` for clearer tracker wording without changing status behavior/values.
