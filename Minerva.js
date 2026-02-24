@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Minerva
 // @namespace    http://tampermonkey.net/
-// @version      v0.4.34
+// @version      v0.4.36
 // @description  Track Torn player activity with a floating multi-target tracker, alerts, and diagnostics.
 // @author       Beatrix [1956521]
 // @license      Proprietary - All Rights Reserved
@@ -24,7 +24,7 @@
     // No permission is granted to copy, modify, redistribute, or republish this script.
 
     // --- Configuration & State ---
-    const MINERVA_VERSION = "v0.4.34";
+    const MINERVA_VERSION = "v0.4.36";
     const MINERVA_ACTIVE_INSTANCE_SLOT = "__minerva_active_instance_token__";
     const MINERVA_INTERNAL_TEARDOWN_SLOT = "__minerva_internal_teardown__";
     const API_KEY_STORAGE_KEY = "torn-api-key";
@@ -2120,7 +2120,12 @@
         let resolvedStatus = currentStatus;
         if (!resolvedStatus || resolvedStatus === "UNKNOWN") {
             const currentTargetState = targetId ? trackedStates[String(targetId)] : null;
-            const fallbackStatus = currentTargetState && currentTargetState.thresholdStatus;
+            let fallbackStatus = currentTargetState && currentTargetState.thresholdStatus;
+            if (!fallbackStatus || fallbackStatus === "UNKNOWN") {
+                const firstTrackedId = trackedTargets.length ? String(trackedTargets[0]) : "";
+                const firstTrackedState = firstTrackedId ? trackedStates[firstTrackedId] : null;
+                fallbackStatus = firstTrackedState && firstTrackedState.thresholdStatus;
+            }
             if (fallbackStatus && fallbackStatus !== "UNKNOWN") {
                 resolvedStatus = fallbackStatus;
                 currentStatus = fallbackStatus;
@@ -2129,7 +2134,7 @@
         const hasKnownStatus = !!(resolvedStatus && resolvedStatus !== "UNKNOWN");
         if (!hasKnownStatus) return;
 
-        if (uiStatus === "PAUSED" || uiStatus === "AWAITING PING") {
+        if ((uiStatus === "PAUSED" || uiStatus === "AWAITING PING" || uiStatus === "NO TARGETS") && trackedTargets.length > 0) {
             updateVisuals(resolvedStatus === "ACTIVE" ? CYAN_COLOR : PINK_COLOR, resolvedStatus);
         }
     }
@@ -2404,11 +2409,27 @@
         ];
 
         const tryInject = () => {
-            // Preferred placement on some Torn profile layouts: insert above the green "Profile Notes" bar.
-            const profileNotesAnchor = Array.from(document.querySelectorAll("div, h2, h3, span"))
-                .find((el) => el instanceof Element && /profile notes/i.test(String(el.textContent || "").trim()) && el.getBoundingClientRect().width > 120);
+            // Preferred placement: wide center-column "Profile Notes" bar (avoid sidebar "Notes" blocks).
+            const profileNotesAnchor = Array.from(document.querySelectorAll("div, h2, h3, span, a"))
+                .filter((el) => {
+                    if (!(el instanceof Element)) return false;
+                    const text = String(el.textContent || "").trim();
+                    if (!/^profile notes$/i.test(text)) return false;
+                    const rect = el.getBoundingClientRect();
+                    if (rect.width < 420 || rect.height < 16) return false;
+                    const style = window.getComputedStyle(el);
+                    if (style.display === "none" || style.visibility === "hidden") return false;
+                    return true;
+                })
+                .sort((a, b) => b.getBoundingClientRect().width - a.getBoundingClientRect().width)[0];
             if (profileNotesAnchor && profileNotesAnchor.parentElement) {
-                const host = profileNotesAnchor.closest('div[class], section, article') || profileNotesAnchor;
+                let host = profileNotesAnchor.closest('div[class], section, article') || profileNotesAnchor;
+                let cur = host;
+                for (let i = 0; i < 4 && cur && cur.parentElement; i++) {
+                    const rect = cur.getBoundingClientRect();
+                    if (rect.width >= 500 && rect.height >= 24) host = cur;
+                    cur = cur.parentElement;
+                }
                 if (host && host.parentElement && !host.contains(uiElement)) {
                     host.parentElement.insertBefore(uiElement, host);
                     disconnectProfileInjectionObserver();

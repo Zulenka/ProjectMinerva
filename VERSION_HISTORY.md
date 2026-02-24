@@ -2,6 +2,15 @@
 
 This file is the source of truth for Minerva release notes on GitHub.
 
+## v0.4.36
+
+- Tightened profile-page UI placement so Minerva prefers the wide center-column `Profile Notes` bar anchor (instead of matching smaller sidebar notes elements), improving consistent placement in the gap above `Profile Notes` across profiles.
+
+## v0.4.35
+
+- Fixed another main-panel status desync where it could remain on `NO TARGETS` on an untracked profile even while the corner widget showed tracked targets and a live status.
+- Main panel status recovery now falls back to the first tracked target's status when the current profile is not tracked.
+
 ## v0.4.34
 
 - Reworked long-lived global UI listeners (toast drag, settings popup, corner widget drag/resize) to use removable handler references, reducing listener buildup during teardown/reload cycles without changing UI behavior.
