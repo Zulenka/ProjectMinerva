@@ -12,7 +12,7 @@ It gives you:
 
 ## Current Version
 
-- **v0.4.36**
+- **v0.4.38**
 
 ## What Minerva Is For (Plain Language)
 
@@ -84,6 +84,13 @@ It is built for on-page use in Torn. It is not a remote service and does not sen
 
 ## Recent Changes
 
+### v0.4.38
+- Adjusted the `Profile Notes` placement rule to insert Minerva directly before the `Profile Notes` bar container (instead of climbing to a wider parent), for more exact positioning in the gap above that bar.
+
+### v0.4.37
+- Added `@noframes` to prevent Minerva from running inside subframes/iframes.
+- Added a DOM-level singleton lock (`data-minerva-active-instance`) so only one Minerva instance can own a page at a time, improving duplicate-instance prevention when userscript sandbox contexts differ.
+
 ### v0.4.36
 - Tightened profile-page UI placement so Minerva prefers the wide center-column `Profile Notes` bar anchor (instead of matching smaller sidebar notes elements), improving consistent placement in the gap above `Profile Notes` across profiles.
 
@@ -107,15 +114,6 @@ It is built for on-page use in Torn. It is not a remote service and does not sen
 ### v0.4.31
 - Fixed a profile-panel status sync edge case where the main Minerva box could stay on `AWAITING PING` on the current profile while the tracked row already had a known status.
 - `syncTrackingStateFromUi()` now falls back to the tracked row's threshold status for the current profile when `currentStatus` is still `UNKNOWN`.
-
-### v0.4.30
-- Added missing `GM_removeValueChangeListener` grant so Minerva teardown can unregister the tracked-target cross-tab sync listener correctly.
-- Hardened one-time global UI listeners (toast drag, settings popup, corner drag/resize) to no-op for stale/inactive Minerva instances.
-- Teardown now resets Minerva global listener bind flags so the active instance can rebind cleanly after stale-instance cleanup.
-
-### v0.4.29
-- Fixed main profile panel status desync where it could remain on `AWAITING PING` after UI reinjection while the corner tracker already had a known live status.
-- `syncTrackingStateFromUi()` now restores the known status when the UI shows `PAUSED` or `AWAITING PING` incorrectly.
 
 ## Full Technical Docs / Changelog
 
