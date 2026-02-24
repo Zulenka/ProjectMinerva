@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Minerva
 // @namespace    http://tampermonkey.net/
-// @version      v0.4.28
+// @version      v0.4.30
 // @description  Track Torn player activity with a floating multi-target tracker, alerts, and diagnostics.
 // @author       Beatrix [1956521]
 // @license      Proprietary - All Rights Reserved
@@ -14,6 +14,7 @@
 // @grant        GM_notification
 // @grant        GM_xmlhttpRequest
 // @grant        GM_addValueChangeListener
+// @grant        GM_removeValueChangeListener
 // ==/UserScript==
 
 (function() {
@@ -23,7 +24,7 @@
     // No permission is granted to copy, modify, redistribute, or republish this script.
 
     // --- Configuration & State ---
-    const MINERVA_VERSION = "v0.4.28";
+    const MINERVA_VERSION = "v0.4.30";
     const MINERVA_ACTIVE_INSTANCE_SLOT = "__minerva_active_instance_token__";
     const API_KEY_STORAGE_KEY = "torn-api-key";
     const API_KEY_VAULT_STORAGE_KEY = "torn-api-key-vault";
@@ -112,6 +113,10 @@
 
     function isActiveMinervaInstance() {
         return window[MINERVA_ACTIVE_INSTANCE_SLOT] === minervaInstanceToken;
+    }
+
+    function isLiveMinervaRuntime() {
+        return !isTornDown && isActiveMinervaInstance();
     }
 
     function releaseActiveMinervaInstance() {
@@ -1176,6 +1181,7 @@
         if (!window.__minervaToastDragBound) {
             window.__minervaToastDragBound = true;
             document.addEventListener("mousemove", (e) => {
+                if (!isLiveMinervaRuntime()) return;
                 if (!toastDragState) return;
                 const toastHost = document.getElementById("minerva-toast-host");
                 if (!toastHost) return;
@@ -1189,6 +1195,7 @@
                 toastHost.style.bottom = `${newBottom}px`;
             });
             document.addEventListener("mouseup", () => {
+                if (!isLiveMinervaRuntime()) return;
                 if (!toastDragState) return;
                 const toastHost = document.getElementById("minerva-toast-host");
                 if (toastHost) {
@@ -1202,6 +1209,7 @@
                 toastDragState = null;
             });
             window.addEventListener("resize", () => {
+                if (!isLiveMinervaRuntime()) return;
                 const toastHost = document.getElementById("minerva-toast-host");
                 if (!toastHost) return;
                 const rect = toastHost.getBoundingClientRect();
@@ -1838,6 +1846,7 @@
             if (!window.__minervaSettingsPopupBound) {
                 window.__minervaSettingsPopupBound = true;
                 document.addEventListener("click", (e) => {
+                    if (!isLiveMinervaRuntime()) return;
                     const popup = document.getElementById("minerva-settings-panel");
                     const gear = document.getElementById("minerva-settings-gear");
                     if (!popup || !gear || popup.style.position !== "fixed") return;
@@ -1846,12 +1855,15 @@
                     setSettingsPopupOpen(false);
                 });
                 window.addEventListener("resize", () => {
+                    if (!isLiveMinervaRuntime()) return;
                     if (isSettingsPopupOpen) positionSettingsPopup();
                 });
                 window.addEventListener("scroll", () => {
+                    if (!isLiveMinervaRuntime()) return;
                     if (isSettingsPopupOpen) positionSettingsPopup();
                 }, true);
                 document.addEventListener("keydown", (e) => {
+                    if (!isLiveMinervaRuntime()) return;
                     if (e.key === "Escape" && isSettingsPopupOpen) {
                         setSettingsPopupOpen(false);
                     }
@@ -2086,8 +2098,14 @@
 
     function syncTrackingStateFromUi() {
         const statusText = document.getElementById("minerva-status-text");
-        if (isTracking && statusText && String(statusText.innerText || "").trim() === "PAUSED") {
-            updateVisuals(CYAN_COLOR, currentStatus && currentStatus !== "UNKNOWN" ? currentStatus : "AWAITING PING");
+        if (!isTracking || !statusText) return;
+
+        const uiStatus = String(statusText.innerText || "").trim();
+        const hasKnownStatus = !!(currentStatus && currentStatus !== "UNKNOWN");
+        if (!hasKnownStatus) return;
+
+        if (uiStatus === "PAUSED" || uiStatus === "AWAITING PING") {
+            updateVisuals(currentStatus === "ACTIVE" ? CYAN_COLOR : PINK_COLOR, currentStatus);
         }
     }
 
@@ -2303,6 +2321,11 @@
             if (el) el.remove();
         });
 
+        delete window.__minervaToastDragBound;
+        delete window.__minervaSettingsPopupBound;
+        delete window.__minervaCornerDragBound;
+        delete window.__minervaCornerResizeBound;
+
         releaseActiveMinervaInstance();
         if (reason !== "unload") {
             console.log(`[Minerva] Runtime torn down (${reason}).`);
@@ -2511,6 +2534,7 @@
         if (!window.__minervaCornerDragBound) {
             window.__minervaCornerDragBound = true;
             document.addEventListener("mousemove", (e) => {
+                if (!isLiveMinervaRuntime()) return;
                 if (!widgetDragState) return;
                 const widgetEl = document.getElementById("minerva-corner-widget");
                 if (!widgetEl) return;
@@ -2524,6 +2548,7 @@
                 widgetEl.style.bottom = `${newBottom}px`;
             });
             document.addEventListener("mouseup", () => {
+                if (!isLiveMinervaRuntime()) return;
                 if (!widgetDragState) return;
                 const widgetEl = document.getElementById("minerva-corner-widget");
                 if (widgetEl) {
@@ -2547,6 +2572,7 @@
         if (!window.__minervaCornerResizeBound) {
             window.__minervaCornerResizeBound = true;
             window.addEventListener("resize", () => {
+                if (!isLiveMinervaRuntime()) return;
                 autoSizeCornerWidgetListHeight();
                 autoSizeCornerWidget();
                 clampCornerWidgetIntoViewport();

@@ -2,6 +2,17 @@
 
 This file is the source of truth for Minerva release notes on GitHub.
 
+## v0.4.30
+
+- Added missing `GM_removeValueChangeListener` grant so Minerva teardown can unregister the tracked-target cross-tab sync listener correctly.
+- Hardened one-time global UI listeners (toast drag, settings popup, corner drag/resize) to no-op for stale/inactive Minerva instances.
+- Teardown now resets Minerva global listener bind flags so the active instance can rebind cleanly after stale-instance cleanup.
+
+## v0.4.29
+
+- Fixed main profile panel status desync where it could remain on `AWAITING PING` after UI reinjection while the corner tracker already had a known live status.
+- `syncTrackingStateFromUi()` now restores the known status when the UI shows `PAUSED` or `AWAITING PING` incorrectly.
+
 ## v0.4.28
 
 - Changed Minerva update-action links (toast `Update` button and header `UPDATE AVAILABLE` badge) to open the Greasy Fork script page instead of GitHub Releases.
