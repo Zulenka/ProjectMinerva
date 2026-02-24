@@ -12,14 +12,14 @@ It gives you:
 
 ## Current Version
 
-- **v0.4.30**
+- **v0.4.31**
 
-## What Minerva Does
+## What Minerva Is For (Plain Language)
 
 Minerva helps you watch specific players without constantly refreshing profiles manually.
 You choose who to track. Minerva checks activity, keeps a visible list, and alerts you when something changes.
 
-It runs locally in your browser while you play Torn. It is not a remote service, and it does not send your tracked target list to the script author.
+It is built for on-page use in Torn. It is not a remote service and does not send your tracked target list to the script author.
 
 ## Main Features
 
@@ -31,7 +31,7 @@ It runs locally in your browser while you play Torn. It is not a remote service,
 - Hospital indicator + hospital enter/leave alerts
 - Travel start/arrival alerts (destination shown when Torn provides it)
 
-### UI and Quality of Life
+### UI / Quality of Life
 
 - Floating corner widget (draggable, lockable, compact mode, hide/reopen)
 - Persistent positions for widget/toasts/popups
@@ -45,7 +45,7 @@ It runs locally in your browser while you play Torn. It is not a remote service,
 - Injection fallback/retry logic for different Torn profile layouts
 - Log noise filtering for common browser/UI warnings
 
-## Privacy and API Key Handling
+## API Key / Privacy / Data Handling
 
 ### Data Storage
 
@@ -63,7 +63,7 @@ It runs locally in your browser while you play Torn. It is not a remote service,
 - Keeps a temporary local unlock cache for convenience
 - Recommended Torn key scope: **User -> Profile** (minimum needed for Minerva's profile activity checks)
 
-## Data and Key Handling Summary
+## Required/Disclosure Summary (AI/Tool Listing Friendly)
 
 | Category | Minerva Statement |
 | --- | --- |
@@ -75,15 +75,27 @@ It runs locally in your browser while you play Torn. It is not a remote service,
 | API Key Access Level | Recommended minimum custom key scope: `User -> Profile`. |
 | External Requests (Non-Torn) | Optional GitHub release version checks only (no Torn API key sent). |
 
-## Troubleshooting
+## Troubleshooting (Quick)
 
 - **No data / activity unavailable**: confirm your Torn API key and `User -> Profile` access.
 - **No targets**: use `Track Current` on a profile page.
 - **Widget missing on a profile**: open Minerva logs and reload once (Minerva has layout fallback/retry logic).
 - **Update toast not showing**: use the `Check Updates` button in Minerva settings for a manual check.
-- **Disabled/removed script but UI still shows**: refresh the page. Minerva cleans itself up on page unload, but userscripts cannot reliably detect a mid-page disable/remove event.
 
 ## Recent Changes
+
+### v0.4.31
+- Fixed a profile-panel status sync edge case where the main Minerva box could stay on `AWAITING PING` on the current profile while the tracked row already had a known status.
+- `syncTrackingStateFromUi()` now falls back to the tracked row's threshold status for the current profile when `currentStatus` is still `UNKNOWN`.
+
+### v0.4.30
+- Added missing `GM_removeValueChangeListener` grant so Minerva teardown can unregister the tracked-target cross-tab sync listener correctly.
+- Hardened one-time global UI listeners (toast drag, settings popup, corner drag/resize) to no-op for stale/inactive Minerva instances.
+- Teardown now resets Minerva global listener bind flags so the active instance can rebind cleanly after stale-instance cleanup.
+
+### v0.4.29
+- Fixed main profile panel status desync where it could remain on `AWAITING PING` after UI reinjection while the corner tracker already had a known live status.
+- `syncTrackingStateFromUi()` now restores the known status when the UI shows `PAUSED` or `AWAITING PING` incorrectly.
 
 ### v0.4.28
 - Changed Minerva update-action links (toast `Update` button and header `UPDATE AVAILABLE` badge) to open the Greasy Fork script page instead of GitHub Releases.
@@ -108,17 +120,11 @@ It runs locally in your browser while you play Torn. It is not a remote service,
 - Removed stale `#minerva-toggle` sync logic from `syncTrackingStateFromUi()` (the toggle no longer exists in the current UI).
 - Kept the useful status-text desync recovery behavior (`PAUSED` -> active status refresh) without dead DOM checks.
 
-### v0.4.23
-- Performance pass: debounced tracked-list rendering to reduce repeated DOM rebuild/layout work during rapid updates.
-- Reduced per-tick URL parsing work by syncing the current profile target ID only when the location search string changes.
-- Strengthened Minerva control style overrides to reduce hover flicker from Torn/global page styles.
-- Added a copy/paste-ready data/key handling disclosure section to `README.md` (used by synced additional info).
-
-## Docs and Changelog
+## Full Technical Docs / Changelog
 
 - `README.md` (technical/project documentation)
 - `VERSION_HISTORY.md` (full version history)
 
 ---
 
-For deeper technical details, see the repository README and full version history.
+This file is auto-generated from repository sources. If wording looks wrong, update the generator/script docs in the repo and re-run generation.
