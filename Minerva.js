@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Minerva
 // @namespace    http://tampermonkey.net/
-// @version      v0.4.25
+// @version      v0.4.26
 // @description  Track Torn player activity with a floating multi-target tracker, alerts, and diagnostics.
 // @author       Beatrix [1956521]
 // @license      Proprietary - All Rights Reserved
@@ -23,7 +23,8 @@
     // No permission is granted to copy, modify, redistribute, or republish this script.
 
     // --- Configuration & State ---
-    const MINERVA_VERSION = "v0.4.25";
+    const MINERVA_VERSION = "v0.4.27";
+    const MINERVA_ACTIVE_INSTANCE_SLOT = "__minerva_active_instance_token__";
     const API_KEY_STORAGE_KEY = "torn-api-key";
     const API_KEY_VAULT_STORAGE_KEY = "torn-api-key-vault";
     const API_KEY_CACHE_STORAGE_KEY = "torn-api-key-cache";
@@ -76,12 +77,18 @@
     let manualPingClickTimestamps = [];
     let manualPingCooldownUntil = 0;
     let versionCheckInFlight = false;
+    let latestAvailableVersion = "";
+    let latestAvailableReleaseUrl = "";
     let trackedTargetsValueChangeListenerId = null;
     let lastKnownLocationSearch = window.location.search || "";
     let trackedListRenderScheduled = false;
     let trackedListRenderInProgress = false;
+    let engineTickInProgress = false;
+    let pollCycleInProgress = false;
+    let isTornDown = false;
     let trackedTargets = GM_getValue(TRACKED_TARGETS_STORAGE_KEY, []);
     let trackedStates = {};
+    const minervaInstanceToken = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
     GM_setValue("minerva-tracking-active", true);
 
@@ -98,6 +105,20 @@
         return `ctx{tracking=${isTracking ? 1 : 0},target=${targetId || "-"},tracked=${trackedTargets.length},status=${currentStatus},path=${path}}`;
     }
 
+    function claimActiveMinervaInstance() {
+        window[MINERVA_ACTIVE_INSTANCE_SLOT] = minervaInstanceToken;
+    }
+
+    function isActiveMinervaInstance() {
+        return window[MINERVA_ACTIVE_INSTANCE_SLOT] === minervaInstanceToken;
+    }
+
+    function releaseActiveMinervaInstance() {
+        if (isActiveMinervaInstance()) {
+            delete window[MINERVA_ACTIVE_INSTANCE_SLOT];
+        }
+    }
+
     function ensureTrackedState(id, nameHint = null) {
         const key = String(id);
         trackedStates[key] = trackedStates[key] || {
@@ -109,6 +130,17 @@
         };
         if (nameHint) trackedStates[key].name = String(nameHint);
         return trackedStates[key];
+    }
+
+    function updateAvailableUiBadge() {
+        const badge = document.getElementById("minerva-update-available-badge");
+        if (!badge) return;
+        const hasUpdate = !!latestAvailableVersion && compareVersions(latestAvailableVersion, MINERVA_VERSION) > 0;
+        badge.style.display = hasUpdate ? "inline-flex" : "none";
+        badge.textContent = "UPDATE AVAILABLE";
+        badge.title = hasUpdate
+            ? `Minerva ${latestAvailableVersion} is available. Click to open release page.`
+            : "";
     }
 
     function syncTargetIdFromUrl() {
@@ -1249,6 +1281,9 @@
     }
 
     function showMinervaUpdateToast(latestVersion, releaseUrl) {
+        latestAvailableVersion = String(latestVersion || "").trim();
+        latestAvailableReleaseUrl = String(releaseUrl || GITHUB_RELEASES_PAGE_URL);
+        updateAvailableUiBadge();
         const host = ensureToastHost();
         if (!host) return;
 
@@ -1376,6 +1411,9 @@
                     }
                     const current = MINERVA_VERSION;
                     if (compareVersions(latest, current) <= 0) {
+                        latestAvailableVersion = "";
+                        latestAvailableReleaseUrl = "";
+                        updateAvailableUiBadge();
                         addLog(`Version check complete. Current version ${current} is up to date.`, "INFO");
                         if (showNoUpdateToast) {
                             showMinervaToast("Minerva Updates", `You are on the latest version (${current}).`, 4500);
@@ -1383,10 +1421,14 @@
                         return;
                     }
                     const dismissed = String(GM_getValue(VERSION_CHECK_DISMISSED_VERSION_STORAGE_KEY, "") || "").trim();
+                    latestAvailableVersion = latest;
+                    latestAvailableReleaseUrl = String(data.html_url || GITHUB_RELEASES_PAGE_URL);
+                    updateAvailableUiBadge();
                     if (!force && dismissed && dismissed === latest) return;
                     addLog(`New Minerva version available: ${latest} (current ${current}).`, "INFO");
                     showMinervaUpdateToast(latest, String(data.html_url || GITHUB_RELEASES_PAGE_URL));
                 } catch (e) {
+                    updateAvailableUiBadge();
                     addLog(`Version check parse failed: ${e.message}`, "DIAGNOSTIC");
                     if (showNoUpdateToast) showMinervaToast("Minerva Updates", "Version check failed while parsing the response.", 5000);
                 }
@@ -1561,6 +1603,7 @@
             <div style="font-weight: bold; font-size: 15px; letter-spacing: 1px;">
                 <span style="color: #ffffff;">[ MINERVA ] STATUS: </span>
                 <span id="minerva-status-text" style="color: ${isTracking ? CYAN_COLOR : PINK_COLOR}; text-shadow: 0 0 8px ${isTracking ? CYAN_COLOR : PINK_COLOR};">AWAITING PING</span>
+                <button id="minerva-update-available-badge" type="button" title="" style="display:none; margin-left:8px; background:transparent; color:${PINK_COLOR}; border:none; padding:0; font-weight:bold; font-size:13px; letter-spacing:0.5px; text-shadow:0 0 7px ${PINK_COLOR}; cursor:pointer;">UPDATE AVAILABLE</button>
             </div>
             <div style="font-size: 13px; opacity: 0.9;">
                 Next Ping: <span id="minerva-countdown" style="font-weight: bold;">--</span>s <span style="margin-left:8px; font-size:10px;">▼</span>
@@ -1626,6 +1669,12 @@
             if (ownProfileControls) return;
             isUiOpen = !isUiOpen;
             settings.style.display = isUiOpen ? "block" : "none";
+        });
+
+        wrapper.querySelector("#minerva-update-available-badge")?.addEventListener("click", (e) => {
+            e.stopPropagation();
+            if (!latestAvailableVersion) return;
+            window.open(latestAvailableReleaseUrl || GITHUB_RELEASES_PAGE_URL, "_blank", "noopener,noreferrer");
         });
 
         wrapper.querySelector("#minerva-time-select").addEventListener("change", (e) => {
@@ -1798,6 +1847,8 @@
                 });
             }
         }
+
+        updateAvailableUiBadge();
 
         return wrapper;
     }
@@ -2205,6 +2256,48 @@
         profileInjectionObserver = null;
     }
 
+    function teardownMinerva(reason = "teardown") {
+        if (isTornDown) return;
+        isTornDown = true;
+        disconnectProfileInjectionObserver();
+        if (engineIntervalId) {
+            clearInterval(engineIntervalId);
+            engineIntervalId = null;
+        }
+        pollCycleInProgress = false;
+        engineTickInProgress = false;
+        trackedListRenderScheduled = false;
+        trackedListRenderInProgress = false;
+        widgetDragState = null;
+        apiKeyPromptDragState = null;
+        toastDragState = null;
+        try {
+            if (typeof GM_removeValueChangeListener === "function" && trackedTargetsValueChangeListenerId) {
+                GM_removeValueChangeListener(trackedTargetsValueChangeListenerId);
+            }
+        } catch (_) {}
+        trackedTargetsValueChangeListenerId = null;
+
+        [
+            "minerva-master-container",
+            "minerva-settings-panel",
+            "minerva-corner-widget",
+            "minerva-corner-reopen",
+            "minerva-toast-host",
+            "minerva-api-key-modal",
+            "minerva-passphrase-modal",
+            "minerva-profile-overlay-host"
+        ].forEach((id) => {
+            const el = document.getElementById(id);
+            if (el) el.remove();
+        });
+
+        releaseActiveMinervaInstance();
+        if (reason !== "unload") {
+            console.log(`[Minerva] Runtime torn down (${reason}).`);
+        }
+    }
+
     function injectSafely() {
         if (!isProfilePageContext()) return;
         if (!targetId) return;
@@ -2467,6 +2560,10 @@
             },
             timeout: 10000, 
             onload: function(response) {
+                if (!isActiveMinervaInstance()) {
+                    finish();
+                    return;
+                }
                 const durationMs = Date.now() - startedAt;
                 if (response.status !== 200) {
                     const state = ensureTrackedState(id);
@@ -2635,6 +2732,10 @@
                 }
             },
             ontimeout: function() {
+                if (!isActiveMinervaInstance()) {
+                    finish();
+                    return;
+                }
                 const durationMs = Date.now() - startedAt;
                 const state = ensureTrackedState(id);
                 state.status = "TIMEOUT";
@@ -2647,6 +2748,10 @@
                 finish();
             },
             onerror: function(err) {
+                if (!isActiveMinervaInstance()) {
+                    finish();
+                    return;
+                }
                 const durationMs = Date.now() - startedAt;
                 const state = ensureTrackedState(id);
                 state.status = "NET ERR";
@@ -2665,10 +2770,17 @@
     }
 
     function checkTargetActivity() {
+        if (!isActiveMinervaInstance()) return;
+        if (pollCycleInProgress) {
+            addLog("Skipped poll cycle start because a previous cycle is still running.", "DIAGNOSTIC");
+            return;
+        }
+        pollCycleInProgress = true;
         const cycleId = ++pollCycleSeq;
         const ids = trackedTargets.slice(0, maxTrackedTargets);
         addLog(`Poll cycle #${cycleId} start. ids=[${ids.join(", ") || "-"}], primary=${targetId ? String(targetId) : (ids[0] || "-")}, countdown=${countdownTimer}`, "DEBUG");
         if (ids.length === 0) {
+            pollCycleInProgress = false;
             if (isTracking) {
                 updateVisuals(PINK_COLOR, "NO TARGETS");
                 if (!hasWarnedNoTargets) {
@@ -2682,9 +2794,13 @@
 
         let index = 0;
         const cycleStartedAt = Date.now();
+        const finishCycle = () => {
+            pollCycleInProgress = false;
+        };
         const next = () => {
             if (index >= ids.length) {
                 addLog(`Poll cycle #${cycleId} queued all ${ids.length} target(s) in ${Date.now() - cycleStartedAt}ms.`, "DEBUG");
+                finishCycle();
                 return;
             }
             const id = ids[index++];
@@ -2694,6 +2810,7 @@
                     setTimeout(next, 300);
                 } else {
                     addLog(`Poll cycle #${cycleId} complete in ${Date.now() - cycleStartedAt}ms.`, "DEBUG");
+                    finishCycle();
                 }
             });
         };
@@ -2702,6 +2819,14 @@
 
     // --- Main Clock ---
     function runEngine() {
+        if (!isActiveMinervaInstance()) {
+            teardownMinerva("stale-instance");
+            return;
+        }
+        if (isTornDown) return;
+        if (engineTickInProgress) return;
+        engineTickInProgress = true;
+        try {
         syncTargetIdFromUrl();
         syncTrackingStateFromUi();
         updateManualPingCooldownVisuals();
@@ -2724,9 +2849,14 @@
                 countdownTimer--;
             }
         }
+        } finally {
+            engineTickInProgress = false;
+        }
     }
 
     function bootMinerva() {
+        isTornDown = false;
+        claimActiveMinervaInstance();
         addLog(`Booting Minerva ${MINERVA_VERSION}. UA=${navigator.userAgent}`, "DIAGNOSTIC");
         addLog(`Initial state loaded. tracking=${isTracking}, targetId=${targetId || "-"}, trackedTargets=[${trackedTargets.join(", ")}], threshold=${thresholdSeconds}s, maxTracked=${maxTrackedTargets}`, "DIAGNOSTIC");
         bindTrackedTargetsStorageSync();
@@ -2783,6 +2913,7 @@
     })();
 
     window.addEventListener("error", (e) => {
+        if (isTornDown) return;
         if (shouldIgnoreGlobalErrorEvent(e)) return;
         addLog(`Window error: ${e.message} @ ${e.filename || "unknown"}:${e.lineno || 0}:${e.colno || 0}`, "ERROR");
         if (e && e.error && e.error.stack) {
@@ -2790,6 +2921,7 @@
         }
     });
     window.addEventListener("unhandledrejection", (e) => {
+        if (isTornDown) return;
         if (shouldIgnoreUnhandledRejectionEvent(e)) return;
         const reason = e && e.reason ? (e.reason.stack || e.reason.message || String(e.reason)) : "unknown";
         addLog(`Unhandled promise rejection: ${String(reason).slice(0, 300)}`, "ERROR");
@@ -2799,7 +2931,16 @@
     });
 
     window.addEventListener("focus", () => {
+        if (isTornDown) return;
         syncTrackedTargetsFromStorage("focus");
     });
+
+    window.addEventListener("pagehide", () => {
+        teardownMinerva("unload");
+    });
+    window.addEventListener("beforeunload", () => {
+        teardownMinerva("unload");
+    });
+    window.MinervaTeardown = teardownMinerva;
 
 })();

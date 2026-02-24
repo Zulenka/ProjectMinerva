@@ -2,6 +2,19 @@
 
 This file is the source of truth for Minerva release notes on GitHub.
 
+## v0.4.27
+
+- Added an inline `UPDATE AVAILABLE` badge in the main Minerva status header (red styling, shown only when GitHub releases report a newer version than the installed script).
+- Clicking the update badge opens the latest release page; the badge clears automatically after updating to the latest version.
+- Added explicit runtime teardown (`teardownMinerva`) to clear Minerva UI, interval, observer, and runtime state on page unload and stale-instance takeover.
+- Reduced lingering/stale UI risk when duplicate instances occur on the same page by tearing down the inactive instance instead of only stopping its timer.
+
+## v0.4.26
+
+- Added runtime singleton guards to prevent duplicate Minerva instances on the same page from fighting over UI/status updates.
+- Added engine tick and poll-cycle reentrancy guards to prevent overlapping countdown/poll updates.
+- Ignored stale async API callbacks from inactive Minerva instances to reduce `PAUSED`/countdown desync behavior.
+
 ## v0.4.25
 
 - Refactor/cleanup pass: replaced repeated tracked-state initialization boilerplate with a shared helper (`ensureTrackedState`) to simplify the polling/error paths.
