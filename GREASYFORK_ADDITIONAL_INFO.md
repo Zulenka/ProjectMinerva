@@ -12,7 +12,7 @@ It gives you:
 
 ## Current Version
 
-- **v0.4.28**
+- **v0.4.30**
 
 ## What Minerva Is For (Plain Language)
 
@@ -84,6 +84,15 @@ It is built for on-page use in Torn. It is not a remote service and does not sen
 
 ## Recent Changes
 
+### v0.4.30
+- Added missing `GM_removeValueChangeListener` grant so Minerva teardown can unregister the tracked-target cross-tab sync listener correctly.
+- Hardened one-time global UI listeners (toast drag, settings popup, corner drag/resize) to no-op for stale/inactive Minerva instances.
+- Teardown now resets Minerva global listener bind flags so the active instance can rebind cleanly after stale-instance cleanup.
+
+### v0.4.29
+- Fixed main profile panel status desync where it could remain on `AWAITING PING` after UI reinjection while the corner tracker already had a known live status.
+- `syncTrackingStateFromUi()` now restores the known status when the UI shows `PAUSED` or `AWAITING PING` incorrectly.
+
 ### v0.4.28
 - Changed Minerva update-action links (toast `Update` button and header `UPDATE AVAILABLE` badge) to open the Greasy Fork script page instead of GitHub Releases.
 - Kept the version check source on GitHub Releases, but routed user-facing updates to the Greasy Fork install/update page.
@@ -112,13 +121,6 @@ It is built for on-page use in Torn. It is not a remote service and does not sen
 - Reduced per-tick URL parsing work by syncing the current profile target ID only when the location search string changes.
 - Strengthened Minerva control style overrides to reduce hover flicker from Torn/global page styles.
 - Added a copy/paste-ready data/key handling disclosure section to `README.md` (used by synced additional info).
-
-### v0.4.22
-- Fixed stale `Track/Untrack Current` state on Torn page changes by syncing the current profile target ID from the URL at runtime.
-- Keeps the main panel button and current-row highlighting aligned when Torn changes profiles without a full script reload.
-
-### v0.4.21
-- Updated Minerva toasts/alerts to display tracked target names (with ID fallback) instead of raw ID-only text.
 
 ## Full Technical Docs / Changelog
 
